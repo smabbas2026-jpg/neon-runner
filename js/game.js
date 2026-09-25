@@ -172,6 +172,7 @@
         if (currentState === STATE.PLAYING) {
             currentState = STATE.PAUSED;
             document.getElementById('pauseScreen').classList.remove('hidden');
+            if (typeof updateAudioButtons === 'function') updateAudioButtons();
             if (window.AudioEngine) window.AudioEngine.pauseMusic();
         } else if (currentState === STATE.PAUSED) {
             resumeGame();
@@ -196,6 +197,8 @@
         document.getElementById('hud').classList.add('hidden');
         const touchControlsElem = document.getElementById('touchControls');
         if (touchControlsElem) touchControlsElem.classList.add('hidden');
+
+        if (typeof updateAudioButtons === 'function') updateAudioButtons();
 
         if (window.AudioEngine) {
             window.AudioEngine.playMenuMusic();
@@ -847,6 +850,38 @@
        UI EVENT LISTENERS & GARAGE SHOP
        ========================================================== */
 
+    // Sound & Music Controls (Synchronized across Main Menu, Pause Screen & HUD)
+    function updateAudioButtons() {
+        const settings = window.GameState.get().settings;
+
+        // Music Buttons (Menu & Pause)
+        const btnMenuMusic = document.getElementById('btnMenuMusic');
+        const btnPauseMusic = document.getElementById('btnPauseMusic');
+        [btnMenuMusic, btnPauseMusic].forEach(btn => {
+            if (btn) {
+                btn.textContent = settings.musicMuted ? '🔇 MUSIC: OFF' : '🎵 MUSIC: ON';
+                btn.classList.toggle('muted', !!settings.musicMuted);
+            }
+        });
+
+        // SFX Buttons (Menu & Pause)
+        const btnMenuSFX = document.getElementById('btnMenuSFX');
+        const btnPauseSFX = document.getElementById('btnPauseSFX');
+        [btnMenuSFX, btnPauseSFX].forEach(btn => {
+            if (btn) {
+                btn.textContent = settings.sfxMuted ? '🔇 SFX: OFF' : '🔊 SFX: ON';
+                btn.classList.toggle('muted', !!settings.sfxMuted);
+            }
+        });
+
+        // HUD Master Sound Button
+        const btnSound = document.getElementById('btnSound');
+        if (btnSound) {
+            const allMuted = settings.musicMuted && settings.sfxMuted;
+            btnSound.textContent = allMuted ? '🔇' : (settings.musicMuted ? '🔈' : '🔊');
+        }
+    }
+
     function initUI() {
         // Buttons
         document.getElementById('btnStart').addEventListener('click', startGame);
@@ -856,23 +891,13 @@
         document.getElementById('btnMenuFromPause').addEventListener('click', showMenu);
         document.getElementById('btnPause').addEventListener('click', togglePause);
 
-        // Sound Mute Toggle (Synchronized across Menu & HUD)
-        function updateSoundButtons() {
-            const settings = window.GameState.get().settings;
-            const btnSound = document.getElementById('btnSound');
-            const btnMenuSound = document.getElementById('btnMenuSound');
-            if (btnSound) btnSound.textContent = settings.musicMuted ? '🔇' : '🔊';
-            if (btnMenuSound) btnMenuSound.textContent = settings.musicMuted ? '🔇 SOUND: OFF' : '🔊 SOUND: ON';
-        }
-
-        function toggleSound(e) {
+        function toggleMusic(e) {
             if (e) e.stopPropagation();
             if (window.AudioEngine) window.AudioEngine.init();
             const settings = window.GameState.get().settings;
             settings.musicMuted = !settings.musicMuted;
-            settings.sfxMuted = settings.musicMuted;
             window.GameState.save();
-            updateSoundButtons();
+            updateAudioButtons();
 
             if (window.AudioEngine) {
                 if (settings.musicMuted) {
@@ -887,13 +912,58 @@
             }
         }
 
+        function toggleSFX(e) {
+            if (e) e.stopPropagation();
+            if (window.AudioEngine) window.AudioEngine.init();
+            const settings = window.GameState.get().settings;
+            settings.sfxMuted = !settings.sfxMuted;
+            window.GameState.save();
+            updateAudioButtons();
+
+            if (!settings.sfxMuted && window.AudioEngine) {
+                window.AudioEngine.playClick();
+            }
+        }
+
+        function toggleMasterSound(e) {
+            if (e) e.stopPropagation();
+            if (window.AudioEngine) window.AudioEngine.init();
+            const settings = window.GameState.get().settings;
+            const targetMuted = !(settings.musicMuted && settings.sfxMuted);
+            settings.musicMuted = targetMuted;
+            settings.sfxMuted = targetMuted;
+            window.GameState.save();
+            updateAudioButtons();
+
+            if (window.AudioEngine) {
+                if (settings.musicMuted) {
+                    window.AudioEngine.stopMusic();
+                } else {
+                    if (currentState === STATE.PLAYING) {
+                        window.AudioEngine.playActionMusic();
+                    } else {
+                        window.AudioEngine.playMenuMusic();
+                    }
+                }
+            }
+        }
+
+        const btnMenuMusic = document.getElementById('btnMenuMusic');
+        if (btnMenuMusic) btnMenuMusic.addEventListener('click', toggleMusic);
+
+        const btnPauseMusic = document.getElementById('btnPauseMusic');
+        if (btnPauseMusic) btnPauseMusic.addEventListener('click', toggleMusic);
+
+        const btnMenuSFX = document.getElementById('btnMenuSFX');
+        if (btnMenuSFX) btnMenuSFX.addEventListener('click', toggleSFX);
+
+        const btnPauseSFX = document.getElementById('btnPauseSFX');
+        if (btnPauseSFX) btnPauseSFX.addEventListener('click', toggleSFX);
+
         const btnSound = document.getElementById('btnSound');
-        if (btnSound) btnSound.addEventListener('click', toggleSound);
+        if (btnSound) btnSound.addEventListener('click', toggleMasterSound);
 
-        const btnMenuSound = document.getElementById('btnMenuSound');
-        if (btnMenuSound) btnMenuSound.addEventListener('click', toggleSound);
-
-        updateSoundButtons();
+        updateAudioButtons();
 
         // Fullscreen Toggle
         const btnFullscreen = document.getElementById('btnFullscreen');

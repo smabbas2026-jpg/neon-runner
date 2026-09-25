@@ -80,7 +80,10 @@
             <button id="btnStart" class="btn-primary">▶ PLAY NOW</button>
             <button id="btnShop" class="btn-secondary">🚀 CYBER GARAGE</button>
             <button id="btnHelp" class="btn-secondary">ℹ HOW TO PLAY</button>
-            <button id="btnMenuSound" class="btn-secondary" style="font-size: 13px;">🔊 SOUND: ON</button>
+            <div class="menu-audio-row">
+                <button id="btnMenuMusic" class="btn-secondary btn-audio-toggle" title="Toggle Electronic Music">🎵 MUSIC: ON</button>
+                <button id="btnMenuSFX" class="btn-secondary btn-audio-toggle" title="Toggle Sound FX">🔊 SFX: ON</button>
+            </div>
             <button id="btnFullscreen" class="btn-secondary" style="font-size: 12px;">⛶ FULLSCREEN</button>
         </div>
     </div>
@@ -122,6 +125,10 @@
 
         <div class="menu-actions">
             <button id="btnResume" class="btn-primary">RESUME RUN</button>
+            <div class="menu-audio-row">
+                <button id="btnPauseMusic" class="btn-secondary btn-audio-toggle" title="Toggle Electronic Music">🎵 MUSIC: ON</button>
+                <button id="btnPauseSFX" class="btn-secondary btn-audio-toggle" title="Toggle Sound FX">🔊 SFX: ON</button>
+            </div>
             <button id="btnMenuFromPause" class="btn-secondary">EXIT TO MENU</button>
         </div>
     </div>
