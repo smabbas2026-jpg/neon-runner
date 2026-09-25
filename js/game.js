@@ -161,7 +161,7 @@
 
         if (window.AudioEngine) {
             window.AudioEngine.init();
-            window.AudioEngine.startMusic();
+            window.AudioEngine.playActionMusic();
         }
 
         lastTime = performance.now();
@@ -172,6 +172,7 @@
         if (currentState === STATE.PLAYING) {
             currentState = STATE.PAUSED;
             document.getElementById('pauseScreen').classList.remove('hidden');
+            if (window.AudioEngine) window.AudioEngine.pauseMusic();
         } else if (currentState === STATE.PAUSED) {
             resumeGame();
         }
@@ -181,6 +182,7 @@
         if (currentState !== STATE.PAUSED) return;
         currentState = STATE.PLAYING;
         document.getElementById('pauseScreen').classList.add('hidden');
+        if (window.AudioEngine) window.AudioEngine.resumeMusic();
         lastTime = performance.now();
         requestAnimationFrame(gameLoop);
     }
@@ -195,6 +197,10 @@
         const touchControlsElem = document.getElementById('touchControls');
         if (touchControlsElem) touchControlsElem.classList.add('hidden');
 
+        if (window.AudioEngine) {
+            window.AudioEngine.playMenuMusic();
+        }
+
         updateMenuStats();
     }
 
@@ -203,6 +209,11 @@
 
         if (window.AudioEngine) {
             window.AudioEngine.playCrash();
+            setTimeout(() => {
+                if (currentState === STATE.GAMEOVER && window.AudioEngine) {
+                    window.AudioEngine.playMenuMusic();
+                }
+            }, 700);
         }
         triggerHaptic([50, 40, 100]);
         window.GameRenderer.triggerShake(18, 450);
@@ -845,17 +856,44 @@
         document.getElementById('btnMenuFromPause').addEventListener('click', showMenu);
         document.getElementById('btnPause').addEventListener('click', togglePause);
 
-        // Sound Mute Toggle
-        const btnSound = document.getElementById('btnSound');
-        if (btnSound) {
-            btnSound.addEventListener('click', () => {
-                const settings = window.GameState.get().settings;
-                settings.musicMuted = !settings.musicMuted;
-                settings.sfxMuted = settings.musicMuted;
-                window.GameState.save();
-                btnSound.textContent = settings.musicMuted ? '🔇' : '🔊';
-            });
+        // Sound Mute Toggle (Synchronized across Menu & HUD)
+        function updateSoundButtons() {
+            const settings = window.GameState.get().settings;
+            const btnSound = document.getElementById('btnSound');
+            const btnMenuSound = document.getElementById('btnMenuSound');
+            if (btnSound) btnSound.textContent = settings.musicMuted ? '🔇' : '🔊';
+            if (btnMenuSound) btnMenuSound.textContent = settings.musicMuted ? '🔇 SOUND: OFF' : '🔊 SOUND: ON';
         }
+
+        function toggleSound(e) {
+            if (e) e.stopPropagation();
+            if (window.AudioEngine) window.AudioEngine.init();
+            const settings = window.GameState.get().settings;
+            settings.musicMuted = !settings.musicMuted;
+            settings.sfxMuted = settings.musicMuted;
+            window.GameState.save();
+            updateSoundButtons();
+
+            if (window.AudioEngine) {
+                if (settings.musicMuted) {
+                    window.AudioEngine.stopMusic();
+                } else {
+                    if (currentState === STATE.PLAYING) {
+                        window.AudioEngine.playActionMusic();
+                    } else {
+                        window.AudioEngine.playMenuMusic();
+                    }
+                }
+            }
+        }
+
+        const btnSound = document.getElementById('btnSound');
+        if (btnSound) btnSound.addEventListener('click', toggleSound);
+
+        const btnMenuSound = document.getElementById('btnMenuSound');
+        if (btnMenuSound) btnMenuSound.addEventListener('click', toggleSound);
+
+        updateSoundButtons();
 
         // Fullscreen Toggle
         const btnFullscreen = document.getElementById('btnFullscreen');
