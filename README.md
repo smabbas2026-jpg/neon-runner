@@ -45,7 +45,7 @@ cd neon-runner
 # Start the local server
 npm start
 # or
-node server.js
+node dev-server.js
 ```
 
 Open [http://localhost:3050](http://localhost:3050) in your browser.
