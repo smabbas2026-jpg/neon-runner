@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#03010b">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="description" content="Neon Runner: High-speed Cyberpunk Endless Highway Runner with Synthwave Aesthetics">
+    
+    <title>NEON RUNNER // CYBER HIGHWAY</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+
+    <!-- PWA & Favicon -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/jpeg" href="assets/logo.jpg">
+    <link rel="apple-touch-icon" href="assets/logo.jpg">
+
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="game">
+    <!-- Main 2.5D Canvas -->
+    <canvas id="canvas"></canvas>
+
+    <!-- In-Game HUD -->
+    <div id="hud" class="hidden">
+        <div class="hud-panel">
+            <div class="hud-stat">
+                <span class="hud-label">SCORE</span>
+                <span id="score" class="hud-val">0</span>
+            </div>
+            <div class="hud-stat" style="margin-left: 8px;">
+                <span class="hud-label">COINS</span>
+                <span id="coins" class="hud-val gold">0</span>
+            </div>
+        </div>
+
+        <div class="hud-center">
+            <div id="speedGauge">0 KM/H</div>
+            <div id="powerupBar" class="hidden">
+                <span id="powerupIcon">⚡ OVERDRIVE</span>
+                <div class="powerup-track">
+                    <div id="powerupTimer"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="hud-actions">
+            <button id="btnSound" class="btn-icon" aria-label="Toggle Sound" title="Sound Mute">🔊</button>
+            <button id="btnPause" class="btn-icon" aria-label="Pause Game" title="Pause Game">⏸</button>
+        </div>
+    </div>
+
+    <!-- Main Start Menu -->
+    <div id="menu" class="modal-screen">
+        <div class="logo-container">
+            <img src="assets/logo.jpg" alt="Neon Runner Logo" class="logo-badge">
+            <h1 class="game-title">NEON RUNNER</h1>
+            <p class="game-tagline">// RUN. DODGE. SURVIVE. //</p>
+        </div>
+
+        <div class="stats-pill-container">
+            <div class="stat-pill">
+                <span class="stat-pill-label">HIGH SCORE</span>
+                <span id="menuBest" class="stat-pill-val">0</span>
+            </div>
+            <div class="stat-pill">
+                <span class="stat-pill-label">COIN BANK</span>
+                <span id="menuCoins" class="stat-pill-val gold">0</span>
+            </div>
+        </div>
+
+        <div class="menu-actions">
+            <button id="btnStart" class="btn-primary">▶ PLAY NOW</button>
+            <button id="btnShop" class="btn-secondary">🚀 CYBER GARAGE</button>
+            <button id="btnHelp" class="btn-secondary">ℹ HOW TO PLAY</button>
+            <button id="btnFullscreen" class="btn-secondary" style="font-size: 12px;">⛶ FULLSCREEN</button>
+        </div>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div id="gameOver" class="modal-screen hidden">
+        <h2 class="game-over-title">SYSTEM FAILURE</h2>
+        <div id="newBestBadge" class="new-best-badge hidden">★ NEW RECORD ★</div>
+
+        <div class="run-summary-box">
+            <div class="summary-item">
+                <span>FINAL SCORE</span>
+                <span id="finalScore">0</span>
+            </div>
+            <div class="summary-item">
+                <span>DISTANCE</span>
+                <span id="finalDistance">0m</span>
+            </div>
+            <div class="summary-item">
+                <span>COINS EARNED</span>
+                <span id="finalCoins" style="color: var(--gold-neon);">0</span>
+            </div>
+            <div class="summary-item">
+                <span>BEST RECORD</span>
+                <span id="finalBest">0</span>
+            </div>
+        </div>
+
+        <div class="menu-actions">
+            <button id="btnRestart" class="btn-primary">⚡ RUN AGAIN</button>
+            <button id="btnMenuFromOver" class="btn-secondary">MAIN MENU</button>
+        </div>
+    </div>
+
+    <!-- Pause Screen -->
+    <div id="pauseScreen" class="modal-screen hidden">
+        <h2 class="game-over-title" style="color: var(--cyan-neon);">SYSTEM PAUSED</h2>
+        <p class="game-tagline" style="margin-bottom: 24px;">ENGINE ON STANDBY</p>
+
+        <div class="menu-actions">
+            <button id="btnResume" class="btn-primary">RESUME RUN</button>
+            <button id="btnMenuFromPause" class="btn-secondary">EXIT TO MENU</button>
+        </div>
+    </div>
+
+    <!-- Cyber Garage / Shop Modal -->
+    <div id="shopModal" class="modal-screen hidden">
+        <div class="shop-modal-container">
+            <div class="shop-header">
+                <h3>CYBER GARAGE</h3>
+                <span class="shop-balance">⚡ <span id="shopCoins">0</span> COINS</span>
+                <button id="btnCloseShop" class="btn-icon" style="width: 36px; height: 36px;">✕</button>
+            </div>
+            <div class="shop-content">
+                <div class="shop-section">
+                    <h4>RUNNER CHASSIS SKINS</h4>
+                    <div id="skinsList"></div>
+                </div>
+                <div class="shop-section">
+                    <h4>POWER-UP UPGRADES</h4>
+                    <div id="upgradesList"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- How To Play / Tutorial Modal -->
+    <div id="helpModal" class="modal-screen hidden">
+        <div class="shop-modal-container" style="max-width: 400px;">
+            <div class="shop-header">
+                <h3>FLIGHT MANUAL</h3>
+                <button id="btnCloseHelp" class="btn-icon" style="width: 36px; height: 36px;">✕</button>
+            </div>
+            <div class="tutorial-grid">
+                <div class="tutorial-item">
+                    <span class="tutorial-icon">↔</span>
+                    <span class="tutorial-label">SWIPE L / R</span>
+                    <span class="tutorial-desc">Switch Lanes</span>
+                </div>
+                <div class="tutorial-item">
+                    <span class="tutorial-icon">⬆</span>
+                    <span class="tutorial-label">SWIPE UP</span>
+                    <span class="tutorial-desc">Jump Low Lasers</span>
+                </div>
+                <div class="tutorial-item">
+                    <span class="tutorial-icon">⬇</span>
+                    <span class="tutorial-label">SWIPE DOWN</span>
+                    <span class="tutorial-desc">Slide Under Gates</span>
+                </div>
+                <div class="tutorial-item">
+                    <span class="tutorial-icon">⚡</span>
+                    <span class="tutorial-label">POWER-UPS</span>
+                    <span class="tutorial-desc">Shield, Magnet, Boost</span>
+                </div>
+            </div>
+            <p style="font-size: 12px; color: var(--text-dim); margin-top: 6px;">
+                On PC / Keyboard: Use <b>Arrow Keys</b> or <b>WASD</b>, <b>Space</b> to Jump, <b>S/Down</b> to Slide, <b>P</b> to Pause.
+            </p>
+        </div>
+    </div>
+
+    <!-- Optional Tactile Touch Buttons -->
+    <div id="touchControls" class="hidden">
+        <div class="touch-cluster">
+            <button id="touchLeft" class="btn-touch" aria-label="Move Left">◀</button>
+            <button id="touchRight" class="btn-touch" aria-label="Move Right">▶</button>
+        </div>
+        <div class="touch-cluster">
+            <button id="touchSlide" class="btn-touch" aria-label="Slide" style="color: var(--gold-neon);">▼</button>
+            <button id="touchJump" class="btn-touch" aria-label="Jump" style="color: var(--magenta-neon);">▲</button>
+        </div>
+    </div>
+</div>
+
+<!-- Game Engine Modules -->
+<script src="js/state.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/particles.js"></script>
+<script src="js/renderer.js"></script>
+<script src="js/game.js"></script>
+
+</body>
+</html>

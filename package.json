@@ -1,0 +1,18 @@
+{
+  "name": "neon-runner-mobile",
+  "version": "1.0.0",
+  "description": "An ultra-fast, visually stunning Cyberpunk Neon Runner mobile game with procedural synth audio, touch gestures, and upgrade garage.",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "neon-runner",
+    "mobile-game",
+    "html5-canvas",
+    "cyberpunk",
+    "synthwave"
+  ],
+  "author": "Antigravity",
+  "license": "MIT"
+}
