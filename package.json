@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "description": "An ultra-fast, visually stunning Cyberpunk Street Runner mobile game with procedural synth audio, touch gestures, and upgrade garage.",
   "scripts": {
-    "start": "node dev-server.js",
-    "dev": "node dev-server.js"
+    "start": "node server.js",
+    "dev": "node server.js"
   },
   "keywords": [
     "street-runner",
