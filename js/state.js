@@ -1,10 +1,11 @@
 /**
- * Neon Runner - Game State & Persistence Manager
+ * Street Runner - Game State & Persistence Manager
  */
 (function() {
     'use strict';
 
-    const STORAGE_KEY = 'neon_runner_save_v1';
+    const STORAGE_KEY = 'street_runner_save_v1';
+    const LEGACY_STORAGE_KEY = 'neon_runner_save_v1';
 
     const SKINS = {
         default: {
@@ -72,7 +73,7 @@
     const UPGRADE_CONFIG = {
         magnet: {
             name: 'QUANTUM MAGNET',
-            desc: 'Pulls nearby energy coins automatically',
+            desc: 'Pulls nearby energy diamonds automatically',
             icon: '🧲',
             baseDuration: 7,
             durationPerLvl: 1.5,
@@ -111,6 +112,7 @@
     const DEFAULT_DATA = {
         highScore: 0,
         bestDistance: 0,
+        diamonds: 0,
         coins: 0,
         totalRuns: 0,
         equippedSkin: 'default',
@@ -135,12 +137,18 @@
 
     function loadState() {
         try {
-            const raw = localStorage.getItem(STORAGE_KEY);
+            const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
             if (raw) {
                 const parsed = JSON.parse(raw);
                 state = Object.assign({}, DEFAULT_DATA, parsed);
+                // Migrate coins to diamonds if diamonds was not set
+                if (state.diamonds === undefined && state.coins !== undefined) {
+                    state.diamonds = state.coins;
+                } else if (state.diamonds !== undefined) {
+                    state.coins = state.diamonds;
+                }
                 // Also migrate legacy Colab best score if present
-                const legacyBest = Number(localStorage.getItem('neonRunnerBest')) || 0;
+                const legacyBest = Number(localStorage.getItem('streetRunnerBest')) || Number(localStorage.getItem('neonRunnerBest')) || 0;
                 if (legacyBest > state.highScore) {
                     state.highScore = legacyBest;
                 }
@@ -150,7 +158,7 @@
                 }
             } else {
                 state = JSON.parse(JSON.stringify(DEFAULT_DATA));
-                const legacyBest = Number(localStorage.getItem('neonRunnerBest')) || 0;
+                const legacyBest = Number(localStorage.getItem('streetRunnerBest')) || Number(localStorage.getItem('neonRunnerBest')) || 0;
                 if (legacyBest > 0) state.highScore = legacyBest;
             }
         } catch (e) {
@@ -162,7 +170,10 @@
 
     function saveState() {
         try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+            const serialized = JSON.stringify(state);
+            localStorage.setItem(STORAGE_KEY, serialized);
+            localStorage.setItem(LEGACY_STORAGE_KEY, serialized);
+            localStorage.setItem('streetRunnerBest', state.highScore.toString());
             localStorage.setItem('neonRunnerBest', state.highScore.toString());
         } catch (e) {
             console.warn('Failed to save state to localStorage', e);
@@ -177,10 +188,14 @@
             return state;
         },
         save: saveState,
-        addCoins: function(amount) {
-            state.coins = Math.max(0, state.coins + amount);
+        addDiamonds: function(amount) {
+            state.diamonds = Math.max(0, (state.diamonds || 0) + amount);
+            state.coins = state.diamonds;
             saveState();
-            return state.coins;
+            return state.diamonds;
+        },
+        addCoins: function(amount) {
+            return this.addDiamonds(amount);
         },
         updateHighScore: function(score, dist) {
             let isNewBest = false;
@@ -201,10 +216,12 @@
             if (state.unlockedSkins.includes(skinId)) {
                 return { success: true, reason: 'Already unlocked' };
             }
-            if (state.coins < skin.price) {
-                return { success: false, reason: 'Not enough coins' };
+            const currentBalance = state.diamonds !== undefined ? state.diamonds : state.coins;
+            if (currentBalance < skin.price) {
+                return { success: false, reason: 'Not enough diamonds' };
             }
-            state.coins -= skin.price;
+            state.diamonds = currentBalance - skin.price;
+            state.coins = state.diamonds;
             state.unlockedSkins.push(skinId);
             state.equippedSkin = skinId;
             saveState();
@@ -224,10 +241,12 @@
                 return { success: false, reason: 'Max level reached' };
             }
             const cost = config.costs[currentLvl - 1];
-            if (state.coins < cost) {
-                return { success: false, reason: 'Not enough coins' };
+            const currentBalance = state.diamonds !== undefined ? state.diamonds : state.coins;
+            if (currentBalance < cost) {
+                return { success: false, reason: 'Not enough diamonds' };
             }
-            state.coins -= cost;
+            state.diamonds = currentBalance - cost;
+            state.coins = state.diamonds;
             state.upgrades[key] = currentLvl + 1;
             saveState();
             return { success: true, newLevel: state.upgrades[key] };

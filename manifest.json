@@ -1,7 +1,7 @@
 {
-  "name": "Neon Runner: Cyber Highway",
-  "short_name": "NeonRunner",
-  "description": "Adrenaline-fueled Cyberpunk Endless Runner mobile game",
+  "name": "Street Runner: Cyber Highway",
+  "short_name": "StreetRunner",
+  "description": "Adrenaline-fueled Cyberpunk Endless Street Runner mobile game",
   "start_url": "./index.html",
   "display": "standalone",
   "orientation": "portrait",

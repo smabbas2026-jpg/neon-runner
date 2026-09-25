@@ -53,7 +53,7 @@ function startServer(port) {
     });
 
     server.listen(port, () => {
-        console.log(`Neon Runner game server running at http://localhost:${port}/`);
+        console.log(`Street Runner game server running at http://localhost:${port}/`);
     });
 }
 

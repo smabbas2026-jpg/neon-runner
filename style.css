@@ -1,5 +1,5 @@
 /* ==========================================================
-   NEON RUNNER - CYBER HIGHWAY
+   STREET RUNNER - CYBER HIGHWAY
    Mobile-First Cyberpunk Synthwave Design System
    ========================================================== */
 
@@ -125,6 +125,11 @@ canvas {
 .hud-val.gold {
     color: var(--gold-neon);
     text-shadow: 0 0 10px rgba(255, 183, 0, 0.6);
+}
+
+.hud-val.diamond {
+    color: var(--cyan-neon);
+    text-shadow: 0 0 10px rgba(0, 243, 255, 0.8), 0 0 20px rgba(0, 243, 255, 0.4);
 }
 
 .hud-actions {
@@ -317,6 +322,11 @@ h1.game-title {
     color: var(--gold-neon);
 }
 
+.stat-pill-val.diamond {
+    color: var(--cyan-neon);
+    text-shadow: 0 0 10px rgba(0, 243, 255, 0.7);
+}
+
 /* Action Buttons */
 .menu-actions {
     display: flex;
@@ -468,7 +478,8 @@ h2.game-over-title {
     font-family: var(--font-heading);
     font-size: 16px;
     font-weight: 800;
-    color: var(--gold-neon);
+    color: var(--cyan-neon);
+    text-shadow: 0 0 10px rgba(0, 243, 255, 0.6);
 }
 
 .shop-content {
@@ -573,9 +584,10 @@ h2.game-over-title {
 }
 
 .btn-shop-buy, .btn-shop-upgrade {
-    background: linear-gradient(135deg, rgba(255, 183, 0, 0.4), rgba(255, 0, 127, 0.4));
-    border: 1px solid var(--gold-neon);
+    background: linear-gradient(135deg, rgba(0, 243, 255, 0.35), rgba(183, 0, 255, 0.35));
+    border: 1px solid var(--cyan-neon);
     color: #ffffff;
+    box-shadow: 0 0 10px rgba(0, 243, 255, 0.3);
 }
 
 .btn-shop-equip {

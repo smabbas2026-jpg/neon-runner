@@ -1,5 +1,5 @@
 /**
- * Neon Runner - 2.5D Cyberpunk Highway Renderer
+ * Street Runner - 2.5D Cyberpunk Highway Renderer
  */
 (function() {
     'use strict';
@@ -19,6 +19,9 @@
 
             this.stars = [];
             this.initStars();
+
+            this.buildings = [];
+            this.initBuildings();
         }
 
         init(canvas) {
@@ -42,6 +45,56 @@
                     blink: Math.random() * Math.PI * 2
                 });
             }
+        }
+
+        initBuildings() {
+            this.buildings = [];
+            const countPerSide = 7;
+            const signs = ['STREET', 'RUNNER', 'CYBER', 'NEON', 'SYNTH', 'TOKYO', 'HOTEL', '2099', 'NEXUS', 'RAM', 'MATRIX', 'VOX'];
+            const neonColors = ['#00f3ff', '#ff007f', '#ffe600', '#00ff66', '#b700ff'];
+            const windowTints = ['#00f3ff', '#ffe600', '#ff00a0', '#e0ffff', '#00ffaa'];
+
+            for (let i = 0; i < countPerSide; i++) {
+                const z = i / countPerSide;
+                // Left side building
+                this.buildings.push(this.createBuilding('left', z, i, signs, neonColors, windowTints));
+                // Right side building (staggered slightly for natural parallax)
+                this.buildings.push(this.createBuilding('right', (z + 0.5 / countPerSide) % 1.0, i + 50, signs, neonColors, windowTints));
+            }
+        }
+
+        createBuilding(side, z, seed, signs, neonColors, windowTints) {
+            const h = 200 + Math.abs(Math.sin(seed * 4.31)) * 260;
+            const length = 0.11;
+            const neon = neonColors[seed % neonColors.length];
+            const winColor = windowTints[(seed * 3) % windowTints.length];
+            const sign = signs[seed % signs.length];
+            const hasSign = (seed % 2 === 0);
+
+            // Pre-generate window illumination pattern (4 cols x 6 rows)
+            const winCols = 4;
+            const winRows = 6;
+            const litMatrix = [];
+            for (let r = 0; r < winRows; r++) {
+                litMatrix[r] = [];
+                for (let c = 0; c < winCols; c++) {
+                    litMatrix[r][c] = (Math.sin(seed * 7.1 + r * 3.3 + c * 5.7) > -0.2);
+                }
+            }
+
+            return {
+                side,
+                z,
+                length,
+                height: h,
+                neonColor: neon,
+                windowColor: winColor,
+                signText: sign,
+                hasSign,
+                litMatrix,
+                hasAntenna: (seed % 3 === 0),
+                seed
+            };
         }
 
         resize() {
@@ -167,6 +220,286 @@
                 }
             }
             ctx.restore();
+        }
+
+        // Draw 3D Perspective Cyberpunk Buildings flanking the street
+        drawSideBuildings(dt, speed, playerLaneOffset = 0, time = 0) {
+            const ctx = this.ctx;
+            const { roadWidth, roadLeft, roadTopWidth, roadTopLeft, horizonY } = this.getRoadMetrics();
+
+            // Advance building depths
+            const moveDelta = speed * (dt / 16.67) * 0.04;
+            for (const b of this.buildings) {
+                b.z += moveDelta;
+                if (b.z - b.length > 1.05) {
+                    b.z -= 1.05;
+                    // Refresh random properties on wrap
+                    const newSeed = Math.floor(Math.random() * 1000);
+                    const signs = ['STREET', 'RUNNER', 'CYBER', 'NEON', 'SYNTH', 'TOKYO', 'HOTEL', '2099', 'NEXUS', 'RAM', 'MATRIX', 'VOX'];
+                    const neonColors = ['#00f3ff', '#ff007f', '#ffe600', '#00ff66', '#b700ff'];
+                    const windowTints = ['#00f3ff', '#ffe600', '#ff00a0', '#e0ffff', '#00ffaa'];
+                    Object.assign(b, this.createBuilding(b.side, b.z, newSeed, signs, neonColors, windowTints));
+                }
+            }
+
+            // Draw sidewalks / kerb strip along road edges
+            ctx.save();
+            // Left sidewalk
+            ctx.fillStyle = '#070414';
+            ctx.beginPath();
+            ctx.moveTo(roadTopLeft, horizonY);
+            ctx.lineTo(roadTopLeft - 18, horizonY);
+            ctx.lineTo(roadLeft - 45, this.H);
+            ctx.lineTo(roadLeft, this.H);
+            ctx.closePath();
+            ctx.fill();
+
+            // Left sidewalk outer neon kerb
+            ctx.strokeStyle = 'rgba(0, 243, 255, 0.4)';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(roadTopLeft - 18, horizonY);
+            ctx.lineTo(roadLeft - 45, this.H);
+            ctx.stroke();
+
+            // Right sidewalk
+            ctx.fillStyle = '#070414';
+            ctx.beginPath();
+            ctx.moveTo(roadTopLeft + roadTopWidth, horizonY);
+            ctx.lineTo(roadTopLeft + roadTopWidth + 18, horizonY);
+            ctx.lineTo(roadLeft + roadWidth + 45, this.H);
+            ctx.lineTo(roadLeft + roadWidth, this.H);
+            ctx.closePath();
+            ctx.fill();
+
+            // Right sidewalk outer neon kerb
+            ctx.strokeStyle = 'rgba(255, 0, 127, 0.4)';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(roadTopLeft + roadTopWidth + 18, horizonY);
+            ctx.lineTo(roadLeft + roadWidth + 45, this.H);
+            ctx.stroke();
+            ctx.restore();
+
+            // Sort buildings back-to-front (lowest z first, closest z last)
+            const sorted = this.buildings.slice().sort((a, b) => a.z - b.z);
+
+            for (const b of sorted) {
+                const pNear = b.z;
+                const pFar = Math.max(0, b.z - b.length);
+                if (pNear <= 0.02) continue;
+
+                // Perspective depth scaling (exponential curve)
+                const dNear = Math.pow(Math.min(1.25, pNear), 2.15);
+                const dFar = Math.pow(Math.max(0, pFar), 2.15);
+
+                const yNear = horizonY + (this.H - horizonY) * dNear;
+                const yFar = horizonY + (this.H - horizonY) * dFar;
+                if (yNear <= horizonY) continue;
+
+                const hNear = b.height * (0.35 + 0.95 * dNear);
+                const hFar = b.height * (0.35 + 0.95 * dFar);
+
+                let wallNearX, wallFarX, outerNearX, outerFarX;
+
+                if (b.side === 'left') {
+                    const curbNear = roadTopLeft + (roadLeft - roadTopLeft) * dNear;
+                    const curbFar = roadTopLeft + (roadLeft - roadTopLeft) * dFar;
+                    const swNear = 8 + 14 * dNear;
+                    const swFar = 8 + 14 * dFar;
+
+                    wallNearX = curbNear - swNear;
+                    wallFarX = curbFar - swFar;
+                    outerNearX = Math.max(-40, wallNearX - (this.W * 0.45 * (0.35 + 0.65 * dNear)));
+                    outerFarX = Math.max(-40, wallFarX - (this.W * 0.45 * (0.35 + 0.65 * dFar)));
+                } else {
+                    const curbNear = (roadTopLeft + roadTopWidth) + ((roadLeft + roadWidth) - (roadTopLeft + roadTopWidth)) * dNear;
+                    const curbFar = (roadTopLeft + roadTopWidth) + ((roadLeft + roadWidth) - (roadTopLeft + roadTopWidth)) * dFar;
+                    const swNear = 8 + 14 * dNear;
+                    const swFar = 8 + 14 * dFar;
+
+                    wallNearX = curbNear + swNear;
+                    wallFarX = curbFar + swFar;
+                    outerNearX = Math.min(this.W + 40, wallNearX + (this.W * 0.45 * (0.35 + 0.65 * dNear)));
+                    outerFarX = Math.min(this.W + 40, wallFarX + (this.W * 0.45 * (0.35 + 0.65 * dFar)));
+                }
+
+                ctx.save();
+
+                // 1. Street-facing wall (Vertical facade running along the highway)
+                ctx.fillStyle = b.side === 'left' ? '#0a061c' : '#070417';
+                ctx.beginPath();
+                ctx.moveTo(wallFarX, yFar - hFar);
+                ctx.lineTo(wallNearX, yNear - hNear);
+                ctx.lineTo(wallNearX, yNear);
+                ctx.lineTo(wallFarX, yFar);
+                ctx.closePath();
+                ctx.fill();
+
+                // Street wall vertical gradient
+                const wallGrad = ctx.createLinearGradient(0, yNear - hNear, 0, yNear);
+                wallGrad.addColorStop(0, 'rgba(255, 255, 255, 0.04)');
+                wallGrad.addColorStop(1, 'rgba(0, 0, 0, 0.6)');
+                ctx.fillStyle = wallGrad;
+                ctx.fill();
+
+                // 2. Front facade (facing camera as building rushes towards player)
+                ctx.fillStyle = b.side === 'left' ? '#0e0926' : '#0c0722';
+                ctx.beginPath();
+                ctx.moveTo(outerNearX, yNear - hNear);
+                ctx.lineTo(wallNearX, yNear - hNear);
+                ctx.lineTo(wallNearX, yNear);
+                ctx.lineTo(outerNearX, yNear);
+                ctx.closePath();
+                ctx.fill();
+
+                // 3. Rooftop (3D perspective top slab)
+                ctx.fillStyle = '#170f36';
+                ctx.beginPath();
+                ctx.moveTo(outerFarX, yFar - hFar);
+                ctx.lineTo(wallFarX, yFar - hFar);
+                ctx.lineTo(wallNearX, yNear - hNear);
+                ctx.lineTo(outerNearX, yNear - hNear);
+                ctx.closePath();
+                ctx.fill();
+
+                // Rooftop neon rim line
+                ctx.strokeStyle = b.neonColor;
+                ctx.shadowColor = b.neonColor;
+                ctx.shadowBlur = 10 * dNear;
+                ctx.lineWidth = 1.2 + 2 * dNear;
+                ctx.beginPath();
+                ctx.moveTo(outerNearX, yNear - hNear);
+                ctx.lineTo(wallNearX, yNear - hNear);
+                ctx.lineTo(wallFarX, yFar - hFar);
+                ctx.stroke();
+
+                // Vertical street-edge neon beacon strip
+                ctx.beginPath();
+                ctx.moveTo(wallNearX, yNear - hNear);
+                ctx.lineTo(wallNearX, yNear);
+                ctx.stroke();
+
+                // 4. Glowing Cyber Windows on Front Facade
+                if (dNear > 0.08) {
+                    const winCols = 4;
+                    const winRows = 6;
+                    const facadeW = Math.abs(wallNearX - outerNearX);
+                    const colW = facadeW / (winCols + 1);
+                    const rowH = hNear / (winRows + 2);
+                    const winW = Math.max(2, colW * 0.55);
+                    const winH = Math.max(3, rowH * 0.45);
+
+                    ctx.shadowBlur = 8 * dNear;
+                    ctx.shadowColor = b.windowColor;
+
+                    for (let r = 0; r < winRows; r++) {
+                        const winY = yNear - hNear + (r + 1.2) * rowH;
+                        if (winY > yNear - 8) continue;
+
+                        for (let c = 0; c < winCols; c++) {
+                            if (b.litMatrix[r] && b.litMatrix[r][c]) {
+                                const winX = (b.side === 'left') 
+                                    ? outerNearX + (c + 0.8) * colW 
+                                    : wallNearX + (c + 0.8) * colW;
+
+                                ctx.fillStyle = b.windowColor;
+                                ctx.fillRect(winX, winY, winW, winH);
+                            }
+                        }
+                    }
+                }
+
+                // 5. Windows on Street-facing Wall (perspective-skewed)
+                if (dNear > 0.15) {
+                    ctx.shadowBlur = 6 * dNear;
+                    ctx.shadowColor = b.windowColor;
+                    ctx.fillStyle = b.windowColor;
+                    const streetWinRows = 4;
+                    const streetWinCols = 3;
+
+                    for (let r = 0; r < streetWinRows; r++) {
+                        const rPct = (r + 1) / (streetWinRows + 1);
+                        for (let c = 0; c < streetWinCols; c++) {
+                            const cPct = (c + 0.5) / streetWinCols;
+                            const wx = wallFarX + (wallNearX - wallFarX) * cPct;
+                            const wyBase = yFar + (yNear - yFar) * cPct;
+                            const wh = hFar + (hNear - hFar) * cPct;
+                            const wy = wyBase - wh * (1 - rPct * 0.7);
+
+                            if ((r + c + Math.floor(b.seed)) % 2 === 0) {
+                                ctx.fillRect(wx - 2 * dNear, wy, 3 * dNear, 4 * dNear);
+                            }
+                        }
+                    }
+                }
+
+                // 6. Rooftop Neon Billboard / Sign
+                if (b.hasSign && dNear > 0.12 && dNear < 0.95) {
+                    const signW = Math.min(140, Math.max(35, 100 * dNear));
+                    const signH = Math.min(42, Math.max(16, 26 * dNear));
+                    const signX = (b.side === 'left') 
+                        ? wallNearX - signW - 8 * dNear 
+                        : wallNearX + 8 * dNear;
+                    const signY = yNear - hNear - signH - 6 * dNear;
+
+                    // Billboard dark backing
+                    ctx.fillStyle = 'rgba(6, 3, 18, 0.9)';
+                    ctx.fillRect(signX, signY, signW, signH);
+
+                    // Billboard neon frame
+                    ctx.strokeStyle = b.neonColor;
+                    ctx.shadowColor = b.neonColor;
+                    ctx.shadowBlur = 12 * dNear;
+                    ctx.lineWidth = 1.5;
+                    ctx.strokeRect(signX, signY, signW, signH);
+
+                    // Billboard text
+                    const fontSize = Math.max(8, Math.floor(12 * dNear));
+                    ctx.font = `900 ${fontSize}px 'Orbitron', monospace`;
+                    ctx.fillStyle = '#ffffff';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(b.signText, signX + signW / 2, signY + signH / 2);
+
+                    // Support struts
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(signX + 6, signY + signH);
+                    ctx.lineTo(signX + 6, yNear - hNear);
+                    ctx.moveTo(signX + signW - 6, signY + signH);
+                    ctx.lineTo(signX + signW - 6, yNear - hNear);
+                    ctx.stroke();
+                }
+
+                // 7. Rooftop Antenna with Blinking Beacon
+                if (b.hasAntenna && dNear > 0.08) {
+                    const antX = (b.side === 'left') ? wallNearX - 16 * dNear : wallNearX + 16 * dNear;
+                    const antY = yNear - hNear;
+                    const antH = 28 * dNear;
+
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+                    ctx.lineWidth = 1.2;
+                    ctx.beginPath();
+                    ctx.moveTo(antX, antY);
+                    ctx.lineTo(antX, antY - antH);
+                    ctx.stroke();
+
+                    // Blinking beacon light
+                    const blink = Math.sin(time * 0.007 + b.seed * 4);
+                    if (blink > 0.2) {
+                        ctx.fillStyle = b.seed % 2 === 0 ? '#ff0055' : '#00f3ff';
+                        ctx.shadowColor = ctx.fillStyle;
+                        ctx.shadowBlur = 10;
+                        ctx.beginPath();
+                        ctx.arc(antX, antY - antH, 2.5 * dNear, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+
+                ctx.restore();
+            }
         }
 
         // Draw highway surface, perspective lanes, and glowing rails
@@ -501,45 +834,134 @@
             }
         }
 
-        // Draw Collectible Coins (Spinning 3D Octahedron Diamonds)
-        drawCoins(coins, time) {
+        // Draw Collectible Diamonds (Multi-faceted 3D Glowing Cyber Gemstones)
+        drawDiamonds(diamonds, time) {
             const ctx = this.ctx;
 
-            for (const coin of coins) {
-                if (coin.collected) continue;
+            for (const d of diamonds) {
+                if (d.collected) continue;
 
                 ctx.save();
-                ctx.translate(coin.x, coin.y);
+                ctx.translate(d.x, d.y);
 
-                // Rotating 3D diamond projection
-                const spin = time * 0.005 + (coin.seed || 0);
-                const scaleX = Math.cos(spin);
+                // Rotating 3D gemstone projection
+                const spin = time * 0.005 + (d.seed || 0);
+                const cosSpin = Math.cos(spin);
+                const absCos = Math.abs(cosSpin);
+                const scaleX = cosSpin;
+                const r = d.radius * 1.15;
 
-                ctx.shadowColor = '#ffd700';
-                ctx.shadowBlur = 18;
+                // Diamond electric cyan bloom
+                ctx.shadowColor = '#00f3ff';
+                ctx.shadowBlur = 22;
 
-                // Gold Diamond
-                ctx.fillStyle = '#ffd700';
+                // 1. Lower Pavilion (Bottom V-taper to culet)
+                // Left lower facet
+                ctx.fillStyle = cosSpin > 0 ? '#00b8e6' : '#0077aa';
                 ctx.beginPath();
-                ctx.moveTo(0, -coin.radius);
-                ctx.lineTo(coin.radius * scaleX, 0);
-                ctx.lineTo(0, coin.radius);
-                ctx.lineTo(-coin.radius * scaleX, 0);
+                ctx.moveTo(-r * scaleX, -r * 0.2);
+                ctx.lineTo(0, -r * 0.2);
+                ctx.lineTo(0, r * 1.15);
                 ctx.closePath();
                 ctx.fill();
 
-                // Bright crystalline core
+                // Right lower facet
+                ctx.fillStyle = cosSpin > 0 ? '#00e5ff' : '#0099cc';
+                ctx.beginPath();
+                ctx.moveTo(0, -r * 0.2);
+                ctx.lineTo(r * scaleX, -r * 0.2);
+                ctx.lineTo(0, r * 1.15);
+                ctx.closePath();
+                ctx.fill();
+
+                // 2. Upper Crown (Top bevels)
+                // Left crown bezel
+                ctx.fillStyle = cosSpin > 0 ? '#66ffff' : '#00d0f5';
+                ctx.beginPath();
+                ctx.moveTo(-r * scaleX, -r * 0.2);
+                ctx.lineTo(-r * 0.55 * scaleX, -r * 0.85);
+                ctx.lineTo(0, -r * 0.2);
+                ctx.closePath();
+                ctx.fill();
+
+                // Right crown bezel
+                ctx.fillStyle = cosSpin > 0 ? '#b3ffff' : '#4deeea';
+                ctx.beginPath();
+                ctx.moveTo(0, -r * 0.2);
+                ctx.lineTo(r * 0.55 * scaleX, -r * 0.85);
+                ctx.lineTo(r * scaleX, -r * 0.2);
+                ctx.closePath();
+                ctx.fill();
+
+                // Top Table facet (flat table top)
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+                ctx.beginPath();
+                ctx.moveTo(-r * 0.55 * scaleX, -r * 0.85);
+                ctx.lineTo(r * 0.55 * scaleX, -r * 0.85);
+                ctx.lineTo(0, -r * 0.2);
+                ctx.closePath();
+                ctx.fill();
+
+                // Inner crystalline prism core
                 ctx.fillStyle = '#ffffff';
                 ctx.beginPath();
-                ctx.moveTo(0, -coin.radius * 0.5);
-                ctx.lineTo(coin.radius * 0.5 * scaleX, 0);
-                ctx.lineTo(0, coin.radius * 0.5);
-                ctx.lineTo(-coin.radius * 0.5 * scaleX, 0);
+                ctx.moveTo(0, -r * 0.7);
+                ctx.lineTo(r * 0.3 * scaleX, -r * 0.2);
+                ctx.lineTo(0, r * 0.5);
+                ctx.lineTo(-r * 0.3 * scaleX, -r * 0.2);
                 ctx.closePath();
                 ctx.fill();
+
+                // Outer Diamond Cut crisp wireframe edges
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+                ctx.lineWidth = 1.2;
+                ctx.beginPath();
+                // Outer perimeter
+                ctx.moveTo(-r * 0.55 * scaleX, -r * 0.85);
+                ctx.lineTo(r * 0.55 * scaleX, -r * 0.85);
+                ctx.lineTo(r * scaleX, -r * 0.2);
+                ctx.lineTo(0, r * 1.15);
+                ctx.lineTo(-r * scaleX, -r * 0.2);
+                ctx.closePath();
+                // Girdle line
+                ctx.moveTo(-r * scaleX, -r * 0.2);
+                ctx.lineTo(r * scaleX, -r * 0.2);
+                ctx.stroke();
+
+                // Twinkling Star Glint / Gemstone Specular Flare
+                const glintCycle = (time * 0.007 + (d.seed || 0) * 5) % (Math.PI * 2);
+                const glintIntensity = Math.sin(glintCycle);
+                if (glintIntensity > 0.75) {
+                    const sparkScale = (glintIntensity - 0.75) / 0.25;
+                    const sparkLen = r * 1.4 * sparkScale;
+
+                    ctx.shadowColor = '#ffffff';
+                    ctx.shadowBlur = 15;
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 1.8 * sparkScale;
+
+                    // 4-point cross star flare at upper right edge
+                    const fx = r * 0.4 * scaleX;
+                    const fy = -r * 0.6;
+                    ctx.beginPath();
+                    ctx.moveTo(fx - sparkLen, fy); ctx.lineTo(fx + sparkLen, fy);
+                    ctx.moveTo(fx, fy - sparkLen); ctx.lineTo(fx, fy + sparkLen);
+                    ctx.stroke();
+
+                    // Central flare core
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath();
+                    ctx.arc(fx, fy, 2.5 * sparkScale, 0, Math.PI * 2);
+                    ctx.fill();
+                }
 
                 ctx.restore();
             }
+        }
+
+        // Backward compatibility alias
+        drawCoins(coins, time) {
+            this.drawDiamonds(coins, time);
         }
 
         // Draw Power-Up items (Shield, Magnet, Overdrive, Multiplier)

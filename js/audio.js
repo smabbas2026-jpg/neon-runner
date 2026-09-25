@@ -1,5 +1,5 @@
 /**
- * Neon Runner - Procedural Web Audio Engine
+ * Street Runner - Procedural Web Audio Engine
  * Pure synthesized retro-synthwave SFX and electronic background arpeggiator.
  */
 (function() {
@@ -165,7 +165,7 @@
             src.stop(ctx.currentTime + 0.25);
         },
 
-        playCoin: function(comboCount) {
+        playDiamond: function(comboCount) {
             if (!checkReady()) return;
             const settings = window.GameState ? window.GameState.get().settings : {};
             if (settings.sfxMuted) return;
@@ -175,25 +175,35 @@
 
             const osc1 = ctx.createOscillator();
             const osc2 = ctx.createOscillator();
+            const oscSparkle = ctx.createOscillator();
             const gain = ctx.createGain();
 
             osc1.type = 'sine';
             osc2.type = 'triangle';
+            oscSparkle.type = 'sine';
 
             osc1.frequency.setValueAtTime(freq, ctx.currentTime);
             osc2.frequency.setValueAtTime(freq * 2, ctx.currentTime);
+            oscSparkle.frequency.setValueAtTime(freq * 4, ctx.currentTime);
 
-            gain.gain.setValueAtTime(0.2, ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
+            gain.gain.setValueAtTime(0.22, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22);
 
             osc1.connect(gain);
             osc2.connect(gain);
+            oscSparkle.connect(gain);
             gain.connect(sfxGain);
 
             osc1.start();
             osc2.start();
-            osc1.stop(ctx.currentTime + 0.18);
-            osc2.stop(ctx.currentTime + 0.18);
+            oscSparkle.start();
+            osc1.stop(ctx.currentTime + 0.22);
+            osc2.stop(ctx.currentTime + 0.22);
+            oscSparkle.stop(ctx.currentTime + 0.22);
+        },
+
+        playCoin: function(comboCount) {
+            this.playDiamond(comboCount);
         },
 
         playPowerup: function() {

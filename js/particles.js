@@ -1,5 +1,5 @@
 /**
- * Neon Runner - High Performance Particle & FX System
+ * Street Runner - High Performance Particle & FX System
  */
 (function() {
     'use strict';
@@ -57,23 +57,30 @@
             }
         }
 
-        // Emit coin collection burst
-        emitCoinBurst(x, y, color = '#ffd700', count = 12) {
+        // Emit diamond collection burst (crystalline sparks & glints)
+        emitDiamondBurst(x, y, color = '#00f3ff', count = 16) {
+            const diamondPalette = ['#00f3ff', '#ffffff', '#e0ffff', '#4deeea'];
             for (let i = 0; i < count; i++) {
                 const angle = Math.random() * Math.PI * 2;
-                const speed = 2 + Math.random() * 5;
+                const speed = 2.5 + Math.random() * 6;
+                const pColor = diamondPalette[Math.floor(Math.random() * diamondPalette.length)];
                 this.particles.push({
                     x: x,
                     y: y,
                     vx: Math.cos(angle) * speed,
                     vy: Math.sin(angle) * speed,
-                    size: 2.5 + Math.random() * 3,
-                    color: color,
+                    size: 2.5 + Math.random() * 3.5,
+                    color: pColor,
                     alpha: 1,
-                    decay: 0.03 + Math.random() * 0.02,
+                    decay: 0.025 + Math.random() * 0.02,
                     glow: true
                 });
             }
+        }
+
+        // Backward compatibility alias for coin burst
+        emitCoinBurst(x, y, color = '#00f3ff', count = 16) {
+            this.emitDiamondBurst(x, y, color, count);
         }
 
         // Emit explosion on player crash or obstacle break

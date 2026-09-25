@@ -1,5 +1,5 @@
 /**
- * Neon Runner - Core Game Engine & Mobile Control System
+ * Street Runner - Core Game Engine & Mobile Control System
  */
 (function() {
     'use strict';
@@ -15,16 +15,17 @@
 
     // Game variables
     let score = 0;
-    let coinsCollected = 0;
+    let diamondsCollected = 0;
     let distance = 0;
     let speed = 5.5;
     let spawnTimer = 0;
     let powerupSpawnTimer = 15000;
-    let coinCombo = 0;
+    let diamondCombo = 0;
     let comboResetTimer = 0;
 
     let obstacles = [];
-    let coinObjects = [];
+    let diamondObjects = [];
+    let coinObjects = diamondObjects; // alias for compatibility
     let powerupObjects = [];
 
     let lastTime = 0;
@@ -79,13 +80,14 @@
 
     function updateMenuStats() {
         const data = window.GameState.get();
+        const currentDiamonds = data.diamonds !== undefined ? data.diamonds : data.coins;
         const menuBest = document.getElementById('menuBest');
-        const menuCoins = document.getElementById('menuCoins');
-        const shopCoins = document.getElementById('shopCoins');
+        const menuDiamonds = document.getElementById('menuDiamonds') || document.getElementById('menuCoins');
+        const shopDiamonds = document.getElementById('shopDiamonds') || document.getElementById('shopCoins');
 
         if (menuBest) menuBest.textContent = data.highScore;
-        if (menuCoins) menuCoins.textContent = data.coins;
-        if (shopCoins) shopCoins.textContent = data.coins;
+        if (menuDiamonds) menuDiamonds.textContent = `💎 ${currentDiamonds}`;
+        if (shopDiamonds) shopDiamonds.textContent = currentDiamonds;
     }
 
     function triggerHaptic(pattern) {
@@ -105,17 +107,18 @@
         currentState = STATE.PLAYING;
 
         score = 0;
-        coinsCollected = 0;
+        diamondsCollected = 0;
         distance = 0;
         speed = 5.5;
         spawnTimer = 0;
         powerupSpawnTimer = 12000;
-        coinCombo = 0;
+        diamondCombo = 0;
         comboResetTimer = 0;
         invulnerableTimer = 0;
 
         obstacles = [];
-        coinObjects = [];
+        diamondObjects = [];
+        coinObjects = diamondObjects;
         powerupObjects = [];
         window.Particles.clear();
 
@@ -205,13 +208,14 @@
         window.GameRenderer.triggerShake(18, 450);
         window.Particles.emitExplosion(player.x, player.y - player.jumpHeight, '#ff0055', 40);
 
-        // Save high score and coin earnings
+        // Save high score and diamond earnings
         const isNewBest = window.GameState.updateHighScore(score, Math.floor(distance));
-        window.GameState.addCoins(coinsCollected);
+        window.GameState.addDiamonds(diamondsCollected);
 
         // Show Game Over UI
         document.getElementById('finalScore').textContent = score;
-        document.getElementById('finalCoins').textContent = coinsCollected;
+        const finalDiamondsElem = document.getElementById('finalDiamonds') || document.getElementById('finalCoins');
+        if (finalDiamondsElem) finalDiamondsElem.textContent = `💎 ${diamondsCollected}`;
         document.getElementById('finalDistance').textContent = Math.floor(distance) + 'm';
         document.getElementById('finalBest').textContent = window.GameState.get().highScore;
 
@@ -329,22 +333,23 @@
         }
     }
 
-    function spawnCoinStreak() {
+    function spawnDiamondStreak() {
         const lane = Math.floor(Math.random() * 3);
         const count = 3 + Math.floor(Math.random() * 3);
 
         for (let i = 0; i < count; i++) {
-            coinObjects.push({
+            diamondObjects.push({
                 lane: lane,
                 x: window.GameRenderer.laneX(lane, 0.0),
                 y: (window.GameRenderer.H * 0.38) - 40 - (i * 55),
-                radius: 12,
+                radius: 13,
                 collected: false,
                 progress: -(i * 0.08),
                 seed: Math.random() * 100
             });
         }
     }
+    const spawnCoinStreak = spawnDiamondStreak;
 
     function spawnPowerup() {
         const lane = Math.floor(Math.random() * 3);
@@ -437,11 +442,11 @@
             invulnerableTimer -= dt;
         }
 
-        // Coin combo decay timer
+        // Diamond combo decay timer
         if (comboResetTimer > 0) {
             comboResetTimer -= dt;
             if (comboResetTimer <= 0) {
-                coinCombo = 0;
+                diamondCombo = 0;
             }
         }
     }
@@ -460,27 +465,27 @@
             ob.x = window.GameRenderer.laneX(ob.lane, Math.min(1, ob.progress));
         }
 
-        // Update coins & magnet pulling
-        for (const coin of coinObjects) {
-            if (player.hasMagnet && !coin.collected && coin.y > horizonY) {
-                // Accelerate coin straight toward player
-                const dx = player.x - coin.x;
-                const dy = (player.y - player.jumpHeight) - coin.y;
+        // Update diamonds & magnet pulling
+        for (const diamond of diamondObjects) {
+            if (player.hasMagnet && !diamond.collected && diamond.y > horizonY) {
+                // Accelerate diamond straight toward player
+                const dx = player.x - diamond.x;
+                const dy = (player.y - player.jumpHeight) - diamond.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
 
                 if (dist < 320) {
-                    coin.x += (dx / dist) * 16;
-                    coin.y += (dy / dist) * 16;
+                    diamond.x += (dx / dist) * 16;
+                    diamond.y += (dy / dist) * 16;
                 } else {
-                    coin.y += movement;
+                    diamond.y += movement;
                 }
             } else {
-                coin.y += movement;
+                diamond.y += movement;
             }
 
-            coin.progress = Math.max(0, (coin.y - horizonY) / trackLength);
-            if (!player.hasMagnet || coin.y < horizonY) {
-                coin.x = window.GameRenderer.laneX(coin.lane, Math.min(1, coin.progress));
+            diamond.progress = Math.max(0, (diamond.y - horizonY) / trackLength);
+            if (!player.hasMagnet || diamond.y < horizonY) {
+                diamond.x = window.GameRenderer.laneX(diamond.lane, Math.min(1, diamond.progress));
             }
         }
 
@@ -493,7 +498,8 @@
 
         // Prune offscreen items
         obstacles = obstacles.filter(ob => ob.y < H + 120);
-        coinObjects = coinObjects.filter(c => c.y < H + 100 && !c.collected);
+        diamondObjects = diamondObjects.filter(d => d.y < H + 100 && !d.collected);
+        coinObjects = diamondObjects;
         powerupObjects = powerupObjects.filter(pu => pu.y < H + 100 && !pu.collected);
     }
 
@@ -523,7 +529,7 @@
         distance += currentSpeed * (dt / 1000);
 
         const pointMultiplier = player.hasMultiplier ? 4 : 2;
-        score = Math.floor(distance * pointMultiplier) + (coinsCollected * 10);
+        score = Math.floor(distance * pointMultiplier) + (diamondsCollected * 10);
 
         // Smoothly accelerate speed over time
         speed += 0.0006 * dt;
@@ -599,31 +605,33 @@
             }
         }
 
-        // 2. Coin collection
-        for (const coin of coinObjects) {
-            if (coin.collected) continue;
+        // 2. Diamond collection
+        for (const diamond of diamondObjects) {
+            if (diamond.collected) continue;
 
-            const dx = player.x - coin.x;
-            const dy = py - coin.y;
+            const dx = player.x - diamond.x;
+            const dy = py - diamond.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
 
             if (dist < 46) {
-                coin.collected = true;
-                coinsCollected++;
-                coinCombo++;
+                diamond.collected = true;
+                diamondsCollected++;
+                diamondCombo++;
                 comboResetTimer = 1800; // 1.8s combo window
 
-                const bonus = Math.min(coinCombo, 10) * 5;
+                const bonus = Math.min(diamondCombo, 10) * 5;
                 score += (10 + bonus);
 
                 if (window.AudioEngine) {
-                    window.AudioEngine.playCoin(coinCombo);
+                    window.AudioEngine.playDiamond(diamondCombo);
                 }
                 triggerHaptic([12]);
 
-                window.Particles.emitCoinBurst(coin.x, coin.y, '#ffd700', 8);
-                if (coinCombo > 3) {
-                    window.Particles.addFloatingText(`x${coinCombo} COMBO!`, coin.x, coin.y - 20, '#ffe600', 14);
+                window.Particles.emitDiamondBurst(diamond.x, diamond.y, '#00f3ff', 14);
+                if (diamondCombo > 2) {
+                    window.Particles.addFloatingText(`💎 x${diamondCombo} COMBO!`, diamond.x, diamond.y - 20, '#00f3ff', 14);
+                } else {
+                    window.Particles.addFloatingText(`💎 +${10 + bonus}`, diamond.x, diamond.y - 18, '#ffffff', 13);
                 }
             }
         }
@@ -650,14 +658,14 @@
 
     function updateHUD() {
         const scoreElem = document.getElementById('score');
-        const coinsElem = document.getElementById('coins');
+        const diamondsElem = document.getElementById('diamonds') || document.getElementById('coins');
         const speedElem = document.getElementById('speedGauge');
         const powerupBar = document.getElementById('powerupBar');
         const powerupIcon = document.getElementById('powerupIcon');
         const powerupTimer = document.getElementById('powerupTimer');
 
         if (scoreElem) scoreElem.textContent = score;
-        if (coinsElem) coinsElem.textContent = coinsCollected;
+        if (diamondsElem) diamondsElem.textContent = `💎 ${diamondsCollected}`;
 
         const kmh = Math.floor(speed * 18);
         if (speedElem) speedElem.textContent = `${kmh} KM/H`;
@@ -720,8 +728,9 @@
         const laneOffset = (player.x - (window.GameRenderer.W / 2)) / (window.GameRenderer.W / 2);
         window.GameRenderer.beginFrame(dt);
         window.GameRenderer.drawSky(time, laneOffset);
+        window.GameRenderer.drawSideBuildings(dt, speed, laneOffset, time);
         window.GameRenderer.drawRoad(dt, speed);
-        window.GameRenderer.drawCoins(coinObjects, time);
+        window.GameRenderer.drawDiamonds(diamondObjects, time);
         window.GameRenderer.drawPowerups(powerupObjects, time);
         window.GameRenderer.drawObstacles(obstacles, time);
         window.Particles.draw(window.GameRenderer.ctx);
@@ -746,6 +755,7 @@
             const dt = 16.67;
             window.GameRenderer.beginFrame(dt);
             window.GameRenderer.drawSky(time, 0);
+            window.GameRenderer.drawSideBuildings(dt, 2.5, 0, time);
             window.GameRenderer.drawRoad(dt, 2.5);
             window.Particles.update(dt);
             window.Particles.draw(window.GameRenderer.ctx);
@@ -885,7 +895,9 @@
 
     function renderShop() {
         const data = window.GameState.get();
-        document.getElementById('shopCoins').textContent = data.coins;
+        const currentDiamonds = data.diamonds !== undefined ? data.diamonds : data.coins;
+        const shopDiamondsElem = document.getElementById('shopDiamonds') || document.getElementById('shopCoins');
+        if (shopDiamondsElem) shopDiamondsElem.textContent = currentDiamonds;
 
         // Render Skins
         const skinsList = document.getElementById('skinsList');
@@ -907,7 +919,7 @@
                 <div class="shop-card-action">
                     ${isEquipped ? '<span class="badge-equipped">EQUIPPED</span>' : 
                       isUnlocked ? `<button class="btn-shop-equip" data-skin="${skin.id}">EQUIP</button>` : 
-                      `<button class="btn-shop-buy" data-skin="${skin.id}">⚡ ${skin.price}</button>`}
+                      `<button class="btn-shop-buy" data-skin="${skin.id}">💎 ${skin.price}</button>`}
                 </div>
             `;
             skinsList.appendChild(card);
@@ -930,7 +942,7 @@
                     renderShop();
                     updateMenuStats();
                 } else {
-                    alert(res.reason || 'Insufficient Coins!');
+                    alert(res.reason || 'Insufficient Diamonds!');
                 }
             });
         });
@@ -956,7 +968,7 @@
                 </div>
                 <div class="shop-card-action">
                     ${isMax ? '<span class="badge-max">MAXED</span>' : 
-                      `<button class="btn-shop-upgrade" data-upgrade="${key}">⚡ ${nextCost}</button>`}
+                      `<button class="btn-shop-upgrade" data-upgrade="${key}">💎 ${nextCost}</button>`}
                 </div>
             `;
             upgradesList.appendChild(card);
@@ -970,7 +982,7 @@
                     renderShop();
                     updateMenuStats();
                 } else {
-                    alert(res.reason || 'Insufficient Coins!');
+                    alert(res.reason || 'Insufficient Diamonds!');
                 }
             });
         });
