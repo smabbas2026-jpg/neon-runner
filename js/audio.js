@@ -92,7 +92,7 @@
     function checkReady() {
         if (!ctx) initAudio();
         if (ctx && ctx.state === 'suspended') {
-            ctx.resume();
+            ctx.resume().catch(() => {});
         }
         return isInitialized && ctx;
     }
@@ -482,8 +482,8 @@
     const F2 = 87.31, F3 = 174.61, F4 = 349.23, F5 = 698.46;
     const C2 = 65.41, C3 = 130.81, C4 = 261.63, C5 = 523.25;
     const A2 = 110.00, A3 = 220.00, A4 = 440.00, A5 = 880.00;
-    const G3 = 196.00, G4 = 392.00, G5 = 783.99;
-    const E4 = 329.63, E5 = 659.25;
+    const G2 = 98.00, G3 = 196.00, G4 = 392.00, G5 = 783.99;
+    const E2 = 82.41, E3 = 164.81, E4 = 329.63, E5 = 659.25;
 
     // 4-Bar Chord Loop (Dm -> Bb -> F -> C)
     const CHORDS = [
@@ -537,7 +537,11 @@
        ========================================================== */
 
     function scheduleMusic() {
-        if (!isPlayingMusic || !ctx || ctx.state === 'suspended') return;
+        if (!isPlayingMusic || !ctx) return;
+        if (ctx.state === 'suspended') {
+            ctx.resume().catch(() => {});
+            return;
+        }
 
         const settings = window.GameState ? window.GameState.get().settings : {};
         if (settings.musicMuted) return;
@@ -545,14 +549,19 @@
         const secondsPer16th = (60 / currentBPM) / 4;
         const scheduleAheadTime = 0.12; // 120ms lookahead
 
-        while (nextStepTime < ctx.currentTime + scheduleAheadTime) {
-            const time = nextStepTime;
+        if (nextStepTime < ctx.currentTime) {
+            nextStepTime = ctx.currentTime + 0.02;
+        }
 
-            // Total 256 steps = 16 bars (4 bars per section)
-            const globalBar = Math.floor(currentStep / 16) % 16;
-            const section = Math.floor(globalBar / 4); // 0, 1, 2, 3
-            const barIndex = globalBar % 4; // 0, 1, 2, 3
-            const stepInBar = currentStep % 16;
+        while (nextStepTime < ctx.currentTime + scheduleAheadTime) {
+            const time = Math.max(ctx.currentTime, nextStepTime);
+
+            try {
+                // Total 256 steps = 16 bars (4 bars per section)
+                const globalBar = Math.floor(currentStep / 16) % 16;
+                const section = Math.floor(globalBar / 4); // 0, 1, 2, 3
+                const barIndex = globalBar % 4; // 0, 1, 2, 3
+                const stepInBar = currentStep % 16;
 
             if (currentMusicMode === 'game') {
                 // ======================================================
@@ -689,6 +698,9 @@
                     synthPluck(time, chillNote, secondsPer16th * 2.2, 0.16);
                 }
             }
+            } catch (err) {
+                // Safeguard against individual note scheduling issues
+            }
 
             // Advance to next 16th note step
             nextStepTime += secondsPer16th;
@@ -698,6 +710,10 @@
 
     function startScheduler(mode = 'game') {
         if (!checkReady()) return;
+
+        if (ctx && ctx.state === 'suspended') {
+            ctx.resume().catch(() => {});
+        }
 
         currentMusicMode = mode;
         currentBPM = (mode === 'menu') ? TEMPO_MENU : TEMPO_GAME;
@@ -1034,16 +1050,23 @@
 
     window.AudioEngine = Sound;
 
-    // Auto-listen to first touch/click anywhere to initialize AudioContext & start electronic menu music
-    ['touchstart', 'click', 'keydown'].forEach(evt => {
-        window.addEventListener(evt, function onUserInteraction() {
-            if (checkReady()) {
-                const settings = window.GameState ? window.GameState.get().settings : {};
-                if (!settings.musicMuted && !isPlayingMusic) {
-                    Sound.playMenuMusic();
-                }
-                window.removeEventListener(evt, onUserInteraction);
+    // Auto-listen to first touch/click/pointer anywhere to initialize AudioContext & start electronic menu music
+    function unlockAudio() {
+        if (checkReady()) {
+            if (ctx && ctx.state === 'suspended') {
+                ctx.resume().catch(() => {});
             }
-        }, { once: false, passive: true });
+            const settings = window.GameState ? window.GameState.get().settings : {};
+            if (!settings.musicMuted && !isPlayingMusic) {
+                Sound.playMenuMusic();
+            }
+        }
+        ['touchstart', 'touchend', 'click', 'keydown', 'pointerdown'].forEach(evt => {
+            window.removeEventListener(evt, unlockAudio);
+        });
+    }
+
+    ['touchstart', 'touchend', 'click', 'keydown', 'pointerdown'].forEach(evt => {
+        window.addEventListener(evt, unlockAudio, { passive: true });
     });
 })();
