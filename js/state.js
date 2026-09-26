@@ -197,6 +197,9 @@
         addCoins: function(amount) {
             return this.addDiamonds(amount);
         },
+        setHighScore: function(score) {
+            return this.updateHighScore(score, 0);
+        },
         updateHighScore: function(score, dist) {
             let isNewBest = false;
             if (score > state.highScore) {

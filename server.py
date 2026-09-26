@@ -186,7 +186,9 @@ class GameServer(BaseHTTPRequestHandler):
             if os.path.exists(file_path):
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
-                self.send_header("Cache-Control", "no-cache")
+                self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+                self.send_header("Pragma", "no-cache")
+                self.send_header("Expires", "0")
                 self.end_headers()
                 with open(file_path, "rb") as f:
                     self.wfile.write(f.read())
@@ -210,7 +212,9 @@ class GameServer(BaseHTTPRequestHandler):
 
             self.send_response(200)
             self.send_header("Content-Type", f"{mime_type}; charset=utf-8" if "text" in mime_type or "javascript" in mime_type or "json" in mime_type else mime_type)
-            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+            self.send_header("Pragma", "no-cache")
+            self.send_header("Expires", "0")
             self.end_headers()
             with open(file_path, "rb") as f:
                 self.wfile.write(f.read())

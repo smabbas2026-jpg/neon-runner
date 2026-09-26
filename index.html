@@ -20,7 +20,7 @@
     <link rel="icon" type="image/jpeg" href="assets/logo.jpg">
     <link rel="apple-touch-icon" href="assets/logo.jpg">
 
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=3.0">
 </head>
 <body>
 
@@ -174,7 +174,7 @@
     </div>
 
     <!-- START MENU -->
-    <div id="startMenu" class="modal-screen">
+    <div id="startMenu" class="modal-screen" onclick="triggerRunNow(event)">
         <img src="assets/logo.jpg" alt="Logo" class="logo-badge">
         <h1 class="game-title">STREET RUNNER</h1>
         <p class="game-tagline">// CYBER HIGHWAY //</p>
@@ -184,7 +184,7 @@
             <div style="margin-top: 6px;">DIAMONDS: <span id="menuDiamonds" style="color: #ff36d4; font-weight: bold;">💎 0</span></div>
         </div>
 
-        <button id="btnStartGame" class="btn-primary">▶ RUN NOW</button>
+        <button id="btnStartGame" class="btn-primary" onclick="triggerRunNow(event)">▶ RUN NOW</button>
         <div class="tap-hint blink">PRESS SPACE OR TAP ANYWHERE TO RUN</div>
 
         <div class="instructions-card">
@@ -195,7 +195,7 @@
     </div>
 
     <!-- GAME OVER SCREEN -->
-    <div id="gameOverModal" class="modal-screen hidden">
+    <div id="gameOverModal" class="modal-screen hidden" onclick="triggerRunNow(event)">
         <h2 class="game-title" style="color: #ff0055; text-shadow: 0 0 25px #ff0055;">SYSTEM FAILURE</h2>
         <p class="game-tagline">// RUN CRASHED //</p>
 
@@ -206,7 +206,7 @@
             <div style="margin-top: 6px;">BEST: <span id="finalBest" style="color: #ffe600; font-weight: bold;">0</span></div>
         </div>
 
-        <button id="btnRestartGame" class="btn-primary">⚡ RUN AGAIN</button>
+        <button id="btnRestartGame" class="btn-primary" onclick="triggerRunNow(event)">⚡ RUN AGAIN</button>
         <div class="tap-hint blink">PRESS SPACE OR TAP ANYWHERE TO RUN AGAIN</div>
     </div>
 
@@ -215,16 +215,34 @@
         <h2 class="game-title" style="color: #00eaff;">STANDBY</h2>
         <p class="game-tagline">// ENGINE PAUSED //</p>
 
-        <button id="btnResumeGame" class="btn-primary">▶ RESUME RUN</button>
+        <button id="btnResumeGame" class="btn-primary" onclick="window.resumeGame && window.resumeGame(event)">▶ RESUME RUN</button>
         <button id="btnMenuFromPause" class="btn-primary" style="background: rgba(12,7,30,0.8); border: 1px solid #00eaff; font-size: 14px; margin-top: 8px;">MAIN MENU</button>
     </div>
 
 </div>
 
-<!-- Engine Scripts -->
-<script src="js/state.js"></script>
-<script src="js/audio.js"></script>
-<script src="js/game.js"></script>
+<!-- Direct Fallback & Version-Busted Scripts -->
+<script>
+    function triggerRunNow(e) {
+        if (e && e.stopPropagation) e.stopPropagation();
+        const menu = document.getElementById('startMenu');
+        if (menu) {
+            menu.classList.add('hidden');
+            menu.style.display = 'none';
+        }
+        const over = document.getElementById('gameOverModal');
+        if (over) {
+            over.classList.add('hidden');
+            over.style.display = 'none';
+        }
+        if (typeof window.startGame === 'function') {
+            window.startGame(e);
+        }
+    }
+</script>
+<script src="js/state.js?v=3.0"></script>
+<script src="js/audio.js?v=3.0"></script>
+<script src="js/game.js?v=3.0"></script>
 
 </body>
 </html>

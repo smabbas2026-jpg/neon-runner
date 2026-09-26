@@ -42,6 +42,7 @@
     let powerupSpawnTimer = 18000;
 
     let lastTime = 0;
+    let loopRunning = false;
 
     // Player Physics State
     const player = {
@@ -106,7 +107,10 @@
         updateMenuStats();
 
         // Start render loop
-        requestAnimationFrame(gameLoop);
+        if (!loopRunning) {
+            loopRunning = true;
+            requestAnimationFrame(gameLoop);
+        }
     }
 
     function updateMenuStats() {
@@ -119,7 +123,9 @@
        GAME LIFECYCLE
        ========================================================== */
 
-    function startGame() {
+    function startGame(e) {
+        if (e && e.stopPropagation) e.stopPropagation();
+
         currentState = STATE.PLAYING;
 
         // Reset variables
@@ -142,16 +148,32 @@
         player.hasOverdrive = false;
         player.hasMultiplier = false;
 
+        // Ensure DOM references exist
+        if (!playerEl) playerEl = document.getElementById('player');
+        if (!entitiesLayerEl) entitiesLayerEl = document.getElementById('gameEntitiesLayer');
+        if (!startMenuEl) startMenuEl = document.getElementById('startMenu');
+        if (!gameOverModalEl) gameOverModalEl = document.getElementById('gameOverModal');
+        if (!pauseModalEl) pauseModalEl = document.getElementById('pauseModal');
+
         // Clear active entities
         if (entitiesLayerEl) entitiesLayerEl.innerHTML = '';
         obstacles = [];
         diamonds = [];
         powerups = [];
 
-        // Hide menus
-        if (startMenuEl) startMenuEl.classList.add('hidden');
-        if (gameOverModalEl) gameOverModalEl.classList.add('hidden');
-        if (pauseModalEl) pauseModalEl.classList.add('hidden');
+        // Hide menus reliably via both CSS class and inline display: none
+        if (startMenuEl) {
+            startMenuEl.classList.add('hidden');
+            startMenuEl.style.display = 'none';
+        }
+        if (gameOverModalEl) {
+            gameOverModalEl.classList.add('hidden');
+            gameOverModalEl.style.display = 'none';
+        }
+        if (pauseModalEl) {
+            pauseModalEl.classList.add('hidden');
+            pauseModalEl.style.display = 'none';
+        }
 
         // Start audio safely
         safeAudio(audio => {
@@ -160,22 +182,37 @@
         });
 
         lastTime = performance.now();
-    }
 
-    function pauseGame() {
-        if (currentState === STATE.PLAYING) {
-            currentState = STATE.PAUSED;
-            if (pauseModalEl) pauseModalEl.classList.remove('hidden');
-            safeAudio(audio => audio.stopMusic());
-        } else if (currentState === STATE.PAUSED) {
-            resumeGame();
+        if (!loopRunning) {
+            loopRunning = true;
+            requestAnimationFrame(gameLoop);
         }
     }
 
-    function resumeGame() {
+    function pauseGame(e) {
+        if (e && e.stopPropagation) e.stopPropagation();
+        if (currentState === STATE.PLAYING) {
+            currentState = STATE.PAUSED;
+            if (!pauseModalEl) pauseModalEl = document.getElementById('pauseModal');
+            if (pauseModalEl) {
+                pauseModalEl.classList.remove('hidden');
+                pauseModalEl.style.display = 'flex';
+            }
+            safeAudio(audio => audio.stopMusic());
+        } else if (currentState === STATE.PAUSED) {
+            resumeGame(e);
+        }
+    }
+
+    function resumeGame(e) {
+        if (e && e.stopPropagation) e.stopPropagation();
         if (currentState === STATE.PAUSED) {
             currentState = STATE.PLAYING;
-            if (pauseModalEl) pauseModalEl.classList.add('hidden');
+            if (!pauseModalEl) pauseModalEl = document.getElementById('pauseModal');
+            if (pauseModalEl) {
+                pauseModalEl.classList.add('hidden');
+                pauseModalEl.style.display = 'none';
+            }
             safeAudio(audio => audio.startMusic('game'));
             lastTime = performance.now();
         }
@@ -201,7 +238,11 @@
             if (finalBestEl) finalBestEl.textContent = Math.max(score, data.highScore);
         }
 
-        if (gameOverModalEl) gameOverModalEl.classList.remove('hidden');
+        if (!gameOverModalEl) gameOverModalEl = document.getElementById('gameOverModal');
+        if (gameOverModalEl) {
+            gameOverModalEl.classList.remove('hidden');
+            gameOverModalEl.style.display = 'flex';
+        }
     }
 
     /* ==========================================================
@@ -769,10 +810,18 @@
         }
     }
 
+    // Expose globals so inline handlers or browser events can call them immediately
+    window.startGame = startGame;
+    window.jump = jump;
+    window.slide = slide;
+    window.pauseGame = pauseGame;
+    window.resumeGame = resumeGame;
+
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
         init();
     }
+    try { init(); } catch (e) {}
 
 })();
