@@ -702,6 +702,7 @@ body {
     -webkit-backdrop-filter: blur(8px);
     text-align: center;
     padding: 24px;
+    cursor: pointer;
     transition: opacity 0.3s ease;
 }
 
@@ -782,6 +783,26 @@ body {
     border-radius: 4px;
     font-weight: bold;
     color: #00eaff;
+}
+
+.tap-hint {
+    margin-top: 10px;
+    margin-bottom: 8px;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: #00eaff;
+    text-shadow: 0 0 10px #00eaff, 0 0 20px #00eaff;
+    pointer-events: none;
+}
+
+.blink {
+    animation: blinkText 1.1s ease-in-out infinite alternate;
+}
+
+@keyframes blinkText {
+    from { opacity: 0.45; transform: scale(0.97); }
+    to { opacity: 1; transform: scale(1.03); }
 }
 
 /* =========================================================

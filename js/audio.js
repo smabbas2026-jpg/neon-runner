@@ -1041,6 +1041,15 @@
             }
         },
 
+        initAudio: function() {
+            try {
+                return checkReady();
+            } catch (e) {
+                console.warn('initAudio error suppressed', e);
+                return false;
+            }
+        },
+
         setMusicVolume: function(vol) {
             if (musicGain && ctx) {
                 musicGain.gain.setValueAtTime(vol, ctx.currentTime);

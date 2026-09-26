@@ -68,6 +68,14 @@
     let startMenuEl, gameOverModalEl, pauseModalEl;
     let menuHighScoreEl, menuDiamondsEl, finalScoreEl, finalDistanceEl, finalDiamondsEl, finalBestEl;
 
+    function safeAudio(fn) {
+        try {
+            if (window.AudioEngine) fn(window.AudioEngine);
+        } catch (e) {
+            console.warn('Audio operation non-fatal error:', e);
+        }
+    }
+
     function init() {
         // Cache DOM elements
         playerEl = document.getElementById('player');
@@ -145,11 +153,11 @@
         if (gameOverModalEl) gameOverModalEl.classList.add('hidden');
         if (pauseModalEl) pauseModalEl.classList.add('hidden');
 
-        // Start audio
-        if (window.AudioEngine) {
-            window.AudioEngine.initAudio();
-            window.AudioEngine.startMusic('game');
-        }
+        // Start audio safely
+        safeAudio(audio => {
+            if (typeof audio.initAudio === 'function') audio.initAudio();
+            if (typeof audio.startMusic === 'function') audio.startMusic('game');
+        });
 
         lastTime = performance.now();
     }
@@ -158,7 +166,7 @@
         if (currentState === STATE.PLAYING) {
             currentState = STATE.PAUSED;
             if (pauseModalEl) pauseModalEl.classList.remove('hidden');
-            if (window.AudioEngine) window.AudioEngine.stopMusic();
+            safeAudio(audio => audio.stopMusic());
         } else if (currentState === STATE.PAUSED) {
             resumeGame();
         }
@@ -168,7 +176,7 @@
         if (currentState === STATE.PAUSED) {
             currentState = STATE.PLAYING;
             if (pauseModalEl) pauseModalEl.classList.add('hidden');
-            if (window.AudioEngine) window.AudioEngine.startMusic('game');
+            safeAudio(audio => audio.startMusic('game'));
             lastTime = performance.now();
         }
     }
@@ -176,15 +184,14 @@
     function gameOver() {
         currentState = STATE.GAMEOVER;
 
-        if (window.AudioEngine) {
-            window.AudioEngine.playCrash();
-            window.AudioEngine.stopMusic();
-        }
+        safeAudio(audio => {
+            audio.playCrash();
+            audio.stopMusic();
+        });
 
         // Save progress in GameState
         if (window.GameState) {
             const data = window.GameState.get();
-            const isNewBest = score > data.highScore;
             window.GameState.setHighScore(score);
             window.GameState.addDiamonds(diamondsCollected);
 
@@ -220,7 +227,7 @@
         if (!player.jumping && !player.sliding) {
             player.jumping = true;
             player.jumpVelocity = 18.5;
-            if (window.AudioEngine) window.AudioEngine.playJump();
+            safeAudio(audio => audio.playJump());
         }
     }
 
@@ -229,7 +236,7 @@
         if (!player.jumping && !player.sliding) {
             player.sliding = true;
             player.slideTimer = 550;
-            if (window.AudioEngine) window.AudioEngine.playSlide();
+            safeAudio(audio => audio.playSlide());
         }
     }
 
@@ -313,7 +320,7 @@
     }
 
     function activatePowerup(type) {
-        if (window.AudioEngine) window.AudioEngine.playPowerup();
+        safeAudio(audio => audio.playPowerup());
 
         if (type === 'shield') {
             player.hasShield = true;
@@ -506,7 +513,7 @@
                         ob.el.remove();
                         obstacles.splice(i, 1);
                         score += 100;
-                        if (window.AudioEngine) window.AudioEngine.playPowerup();
+                        safeAudio(audio => audio.playPowerup());
                         continue;
                     }
 
@@ -515,7 +522,7 @@
                         player.hasShield = false;
                         ob.el.remove();
                         obstacles.splice(i, 1);
-                        if (window.AudioEngine) window.AudioEngine.playPowerup();
+                        safeAudio(audio => audio.playPowerup());
                         continue;
                     }
 
@@ -543,7 +550,7 @@
                     d.el.remove();
                     diamonds.splice(i, 1);
 
-                    if (window.AudioEngine) window.AudioEngine.playCoin();
+                    safeAudio(audio => audio.playCoin());
                 }
             }
 
@@ -590,16 +597,43 @@
         window.addEventListener('keydown', (e) => {
             const key = e.key.toLowerCase();
 
-            if (key === ' ' || key === 'arrowup' || key === 'w') {
-                e.preventDefault();
-                jump();
-            } else if (key === 'arrowdown' || key === 's') {
-                e.preventDefault();
-                slide();
-            } else if (key === 'p' || key === 'escape') {
-                pauseGame();
-            } else if (key === 'm') {
-                if (window.AudioEngine) window.AudioEngine.toggleMusicMute();
+            // Menu or Game Over: Space, Enter, Up arrow, W immediately starts running!
+            if (currentState === STATE.MENU || currentState === STATE.GAMEOVER) {
+                if (key === ' ' || key === 'enter' || key === 'arrowup' || key === 'w') {
+                    e.preventDefault();
+                    startGame();
+                    return;
+                }
+            }
+
+            // Paused: Resume on Space, Enter, Escape, or P
+            if (currentState === STATE.PAUSED) {
+                if (key === ' ' || key === 'enter' || key === 'p' || key === 'escape') {
+                    e.preventDefault();
+                    resumeGame();
+                    return;
+                }
+            }
+
+            // Playing: Jump, Slide, Pause, Mute
+            if (currentState === STATE.PLAYING) {
+                if (key === ' ' || key === 'arrowup' || key === 'w') {
+                    e.preventDefault();
+                    jump();
+                } else if (key === 'arrowdown' || key === 's') {
+                    e.preventDefault();
+                    slide();
+                } else if (key === 'p' || key === 'escape') {
+                    e.preventDefault();
+                    pauseGame();
+                } else if (key === 'm') {
+                    e.preventDefault();
+                    safeAudio(audio => {
+                        const muted = audio.toggleMusicMute();
+                        const btnMusic = document.getElementById('btnMusic');
+                        if (btnMusic) btnMusic.textContent = muted ? '🎵❌' : '🎵';
+                    });
+                }
             }
         });
 
@@ -618,24 +652,57 @@
             const dy = t.clientY - touchStartY;
             const dx = t.clientX - touchStartX;
 
-            if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 30) {
-                if (dy < 0) jump();
-                else slide();
+            if (currentState === STATE.MENU || currentState === STATE.GAMEOVER) {
+                startGame();
+                return;
+            }
+
+            if (currentState === STATE.PLAYING) {
+                if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 25) {
+                    if (dy < 0) jump();
+                    else slide();
+                }
             }
         }, { passive: true });
+
+        // Direct Screen Tap / Click anywhere in game
+        window.addEventListener('pointerdown', (e) => {
+            // Ignore if clicking HUD buttons, mobile buttons, or modal interactive links
+            if (
+                e.target.closest('.hud-btn-row') ||
+                e.target.closest('.mobile-controls') ||
+                e.target.closest('a')
+            ) {
+                return;
+            }
+
+            if (currentState === STATE.MENU || currentState === STATE.GAMEOVER) {
+                startGame();
+                return;
+            }
+
+            if (currentState === STATE.PLAYING) {
+                // Top half -> Jump, Bottom half -> Slide
+                if (e.clientY < window.innerHeight * 0.55) {
+                    jump();
+                } else {
+                    slide();
+                }
+            }
+        });
 
         // Mobile On-Screen Buttons
         const btnMobileJump = document.getElementById('btnMobileJump');
         const btnMobileSlide = document.getElementById('btnMobileSlide');
 
         if (btnMobileJump) {
-            btnMobileJump.addEventListener('touchstart', (e) => { e.preventDefault(); jump(); });
-            btnMobileJump.addEventListener('click', jump);
+            btnMobileJump.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); jump(); }, { passive: false });
+            btnMobileJump.addEventListener('click', (e) => { e.stopPropagation(); jump(); });
         }
 
         if (btnMobileSlide) {
-            btnMobileSlide.addEventListener('touchstart', (e) => { e.preventDefault(); slide(); });
-            btnMobileSlide.addEventListener('click', slide);
+            btnMobileSlide.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); slide(); }, { passive: false });
+            btnMobileSlide.addEventListener('click', (e) => { e.stopPropagation(); slide(); });
         }
 
         // HUD Buttons
@@ -644,25 +711,30 @@
         const btnPause = document.getElementById('btnPause');
 
         if (btnSound) {
-            btnSound.addEventListener('click', () => {
-                if (window.AudioEngine) {
-                    const muted = window.AudioEngine.toggleSFXMute();
+            btnSound.addEventListener('click', (e) => {
+                e.stopPropagation();
+                safeAudio(audio => {
+                    const muted = audio.toggleSFXMute();
                     btnSound.textContent = muted ? '🔇' : '🔊';
-                }
+                });
             });
         }
 
         if (btnMusic) {
-            btnMusic.addEventListener('click', () => {
-                if (window.AudioEngine) {
-                    const muted = window.AudioEngine.toggleMusicMute();
+            btnMusic.addEventListener('click', (e) => {
+                e.stopPropagation();
+                safeAudio(audio => {
+                    const muted = audio.toggleMusicMute();
                     btnMusic.textContent = muted ? '🎵❌' : '🎵';
-                }
+                });
             });
         }
 
         if (btnPause) {
-            btnPause.addEventListener('click', pauseGame);
+            btnPause.addEventListener('click', (e) => {
+                e.stopPropagation();
+                pauseGame();
+            });
         }
 
         // Modal Action Buttons
@@ -671,11 +743,24 @@
         const btnResumeGame = document.getElementById('btnResumeGame');
         const btnMenuFromPause = document.getElementById('btnMenuFromPause');
 
-        if (btnStartGame) btnStartGame.addEventListener('click', startGame);
-        if (btnRestartGame) btnRestartGame.addEventListener('click', startGame);
-        if (btnResumeGame) btnResumeGame.addEventListener('click', resumeGame);
+        if (btnStartGame) {
+            btnStartGame.addEventListener('click', (e) => { e.stopPropagation(); startGame(); });
+            btnStartGame.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); startGame(); }, { passive: false });
+        }
+
+        if (btnRestartGame) {
+            btnRestartGame.addEventListener('click', (e) => { e.stopPropagation(); startGame(); });
+            btnRestartGame.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); startGame(); }, { passive: false });
+        }
+
+        if (btnResumeGame) {
+            btnResumeGame.addEventListener('click', (e) => { e.stopPropagation(); resumeGame(); });
+            btnResumeGame.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); resumeGame(); }, { passive: false });
+        }
+
         if (btnMenuFromPause) {
-            btnMenuFromPause.addEventListener('click', () => {
+            btnMenuFromPause.addEventListener('click', (e) => {
+                e.stopPropagation();
                 currentState = STATE.MENU;
                 if (pauseModalEl) pauseModalEl.classList.add('hidden');
                 if (startMenuEl) startMenuEl.classList.remove('hidden');
@@ -684,6 +769,10 @@
         }
     }
 
-    window.addEventListener('DOMContentLoaded', init);
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
 
 })();
