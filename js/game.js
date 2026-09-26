@@ -13,11 +13,18 @@
 
     let currentState = STATE.MENU;
 
+    // Speed settings
+    const START_SPEED = 4;
+    const MAX_SPEED = 14;
+    const ACCELERATION = 0.1;
+
     // Game variables
+    let game_speed = START_SPEED;
+    let speed = game_speed; // alias for existing renderer references
+    let elapsed_time = 0;
     let score = 0;
     let diamondsCollected = 0;
     let distance = 0;
-    let speed = 5.5;
     let spawnTimer = 0;
     let powerupSpawnTimer = 15000;
     let diamondCombo = 0;
@@ -109,7 +116,9 @@
         score = 0;
         diamondsCollected = 0;
         distance = 0;
-        speed = 5.5;
+        elapsed_time = 0;
+        game_speed = START_SPEED;
+        speed = game_speed;
         spawnTimer = 0;
         powerupSpawnTimer = 12000;
         diamondCombo = 0;
@@ -538,16 +547,26 @@
         }
     }
 
+    function update_speed(dt) {
+        elapsed_time += dt;
+
+        game_speed = Math.min(
+            START_SPEED + (elapsed_time * ACCELERATION),
+            MAX_SPEED
+        );
+        speed = game_speed;
+        return game_speed;
+    }
+
     function updateDifficulty(dt) {
-        const currentSpeed = player.hasOverdrive ? speed * 1.6 : speed;
-        distance += currentSpeed * (dt / 1000);
+        const dtSeconds = dt / 1000;
+        update_speed(dtSeconds);
+
+        const currentSpeed = player.hasOverdrive ? game_speed * 1.6 : game_speed;
+        distance += currentSpeed * dtSeconds;
 
         const pointMultiplier = player.hasMultiplier ? 4 : 2;
         score = Math.floor(distance * pointMultiplier) + (diamondsCollected * 10);
-
-        // Smoothly accelerate speed over time
-        speed += 0.0006 * dt;
-        speed = Math.min(speed, 14.0);
     }
 
     /* ==========================================================
@@ -1104,4 +1123,10 @@
     window.showMenu = showMenu;
     window.resumeGame = resumeGame;
     window.togglePause = togglePause;
+    window.START_SPEED = START_SPEED;
+    window.MAX_SPEED = MAX_SPEED;
+    window.ACCELERATION = ACCELERATION;
+    window.update_speed = update_speed;
+    window.getGameSpeed = () => game_speed;
+    window.getElapsedTime = () => elapsed_time;
 })();
