@@ -3,246 +3,245 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="theme-color" content="#050713">
+    <meta name="theme-color" content="#03010b">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="description" content="Street Runner // Cyber Highway - High-speed Cyberpunk Endless Street Runner">
+    <meta name="description" content="Street Runner // Cyber Highway - 3D Endless Cyberpunk Runner with 3 Lanes">
 
-    <title>Street Runner // Cyber Highway</title>
+    <title>Street Runner // 3D Cyber Highway</title>
 
-    <!-- Google Fonts -->
+    <!-- Google Fonts: Orbitron & Rajdhani -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
 
     <!-- Favicon & PWA -->
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/jpeg" href="assets/logo.jpg">
     <link rel="apple-touch-icon" href="assets/logo.jpg">
 
-    <link rel="stylesheet" href="style.css?v=3.0">
+    <link rel="stylesheet" href="style.css?v=4.0">
 </head>
 <body>
 
-<div class="game" id="gameWorld">
+<div id="game">
+    <!-- Main 3D Perspective Canvas -->
+    <canvas id="canvas"></canvas>
 
-    <!-- MOON -->
-    <div class="moon"></div>
-
-    <!-- STARS -->
-    <div class="star" style="left:5%;top:15%;"></div>
-    <div class="star" style="left:12%;top:30%;"></div>
-    <div class="star" style="left:22%;top:10%;"></div>
-    <div class="star" style="left:30%;top:25%;"></div>
-    <div class="star" style="left:40%;top:12%;"></div>
-    <div class="star" style="left:50%;top:28%;"></div>
-    <div class="star" style="left:62%;top:10%;"></div>
-    <div class="star" style="left:72%;top:25%;"></div>
-    <div class="star" style="left:83%;top:13%;"></div>
-    <div class="star" style="left:94%;top:30%;"></div>
-
-    <!-- FAR CITY -->
-    <div class="far-city" id="farCity">
-        <div class="far-building" style="height:170px;"></div>
-        <div class="far-building" style="height:230px;"></div>
-        <div class="far-building" style="height:140px;"></div>
-        <div class="far-building" style="height:290px;"></div>
-        <div class="far-building" style="height:200px;"></div>
-        <div class="far-building" style="height:320px;"></div>
-        <div class="far-building" style="height:180px;"></div>
-        <div class="far-building" style="height:250px;"></div>
-        <div class="far-building" style="height:160px;"></div>
-        <div class="far-building" style="height:300px;"></div>
-        <!-- Loop Repeat -->
-        <div class="far-building" style="height:170px;"></div>
-        <div class="far-building" style="height:230px;"></div>
-        <div class="far-building" style="height:140px;"></div>
-        <div class="far-building" style="height:290px;"></div>
-        <div class="far-building" style="height:200px;"></div>
-        <div class="far-building" style="height:320px;"></div>
-        <div class="far-building" style="height:180px;"></div>
-        <div class="far-building" style="height:250px;"></div>
-        <div class="far-building" style="height:160px;"></div>
-        <div class="far-building" style="height:300px;"></div>
-    </div>
-
-    <!-- MAIN CITY -->
-    <div class="city" id="mainCity">
-        <div class="building medium"><div class="antenna"></div></div>
-        <div class="building tall"></div>
-        <div class="building small"></div>
-        <div class="building tower"><div class="antenna"></div></div>
-
-        <!-- HOUSE -->
-        <div class="house">
-            <div class="house-window hw-left"></div>
-            <div class="house-window hw-right"></div>
+    <!-- In-Game HUD -->
+    <div id="hud" class="hidden">
+        <div class="hud-panel">
+            <div class="hud-stat">
+                <span class="hud-label">SCORE</span>
+                <span id="score" class="hud-val">0</span>
+            </div>
+            <div class="hud-stat" style="margin-left: 10px;">
+                <span class="hud-label">DIAMONDS</span>
+                <span id="diamonds" class="hud-val diamond">💎 0</span>
+            </div>
         </div>
 
-        <!-- SIGN -->
-        <div class="sign">NEON</div>
-        <div class="building medium"></div>
-        <div class="streetlight"></div>
-
-        <!-- HOUSE -->
-        <div class="house">
-            <div class="house-window hw-left"></div>
-            <div class="house-window hw-right"></div>
+        <div class="hud-center">
+            <div id="speedGauge">CYBER HIGHWAY // 3.0X</div>
+            <div class="lanes-indicator" id="lanesIndicator">
+                <span class="lane-dot" id="dotLane0" title="Left Lane">L</span>
+                <span class="lane-dot active" id="dotLane1" title="Center Lane">C</span>
+                <span class="lane-dot" id="dotLane2" title="Right Lane">R</span>
+            </div>
+            <div id="powerupBar" class="hidden">
+                <span id="powerupIcon">⚡ OVERDRIVE</span>
+                <div class="powerup-track">
+                    <div id="powerupTimer"></div>
+                </div>
+            </div>
         </div>
 
-        <div class="building tall"></div>
-        <div class="sign">CITY</div>
-        <div class="building tower"><div class="antenna"></div></div>
-        <div class="streetlight"></div>
-        <div class="building medium"></div>
-
-        <!-- REPEAT -->
-        <div class="house">
-            <div class="house-window hw-left"></div>
-            <div class="house-window hw-right"></div>
-        </div>
-        <div class="building tall"></div>
-        <div class="sign">RUN</div>
-        <div class="streetlight"></div>
-        <div class="building medium"></div>
-    </div>
-
-    <!-- PEOPLE -->
-    <div class="people" id="peopleLayer">
-        <div class="person"></div>
-        <div class="person"></div>
-        <div class="person"></div>
-        <div class="person"></div>
-        <div class="person"></div>
-        <div class="person"></div>
-        <div class="person"></div>
-        <div class="person"></div>
-        <div class="person"></div>
-        <div class="person"></div>
-        <div class="person"></div>
-        <div class="person"></div>
-    </div>
-
-    <!-- SIDEWALK -->
-    <div class="sidewalk" id="sidewalk"></div>
-
-    <!-- CARS -->
-    <div class="cars" id="carsLayer">
-        <div class="car"><div class="wheel left"></div><div class="wheel right"></div></div>
-        <div class="car"><div class="wheel left"></div><div class="wheel right"></div></div>
-        <div class="car"><div class="wheel left"></div><div class="wheel right"></div></div>
-        <div class="car"><div class="wheel left"></div><div class="wheel right"></div></div>
-        <div class="car"><div class="wheel left"></div><div class="wheel right"></div></div>
-        <div class="car"><div class="wheel left"></div><div class="wheel right"></div></div>
-    </div>
-
-    <!-- ROAD -->
-    <div class="road" id="road"></div>
-
-    <!-- GAME ENTITIES LAYER (Obstacles, Diamonds, Powerups) -->
-    <div id="gameEntitiesLayer" class="entities-layer"></div>
-
-    <!-- PLAYER -->
-    <div class="player player-running" id="player"></div>
-
-    <!-- HUD -->
-    <div class="hud">
-        <div class="title">STREET RUNNER</div>
-        <div class="score" id="scoreDisplay">SCORE: 000000</div>
-        <div class="diamonds-badge" id="diamondsBadge">💎 0</div>
-    </div>
-
-    <div class="hud-right">
-        <div class="speed" id="speedDisplay">CYBER HIGHWAY // 4.0X</div>
-        <div class="hud-btn-row">
-            <button id="btnMusic" class="btn-icon" title="Toggle Synthwave Music">🎵</button>
-            <button id="btnSound" class="btn-icon" title="Toggle SFX">🔊</button>
-            <button id="btnPause" class="btn-icon" title="Pause Game">⏸</button>
+        <div class="hud-actions">
+            <button id="btnSound" class="btn-icon" aria-label="Toggle Sound" title="Sound Mute">🔊</button>
+            <button id="btnPause" class="btn-icon" aria-label="Pause Game" title="Pause Game">⏸</button>
         </div>
     </div>
 
-    <!-- MOBILE TOUCH ACTION BUTTONS -->
-    <div class="mobile-controls">
-        <button id="btnMobileSlide" class="touch-btn slide-btn">
-            <span>▼</span>
-            <span>SLIDE</span>
-        </button>
-        <button id="btnMobileJump" class="touch-btn jump-btn">
-            <span>▲</span>
-            <span>JUMP</span>
-        </button>
+    <!-- Main Start Menu Modal -->
+    <div id="menu" class="modal-screen" onclick="triggerRunNow(event)">
+        <div class="logo-container">
+            <img src="assets/logo.jpg" alt="Street Runner Logo" class="logo-badge">
+            <h1 class="game-title">STREET RUNNER</h1>
+            <p class="game-tagline">// 3D CYBER HIGHWAY • 3 LANES //</p>
+        </div>
+
+        <div class="stats-pill-container">
+            <div class="stat-pill">
+                <span class="stat-pill-label">HIGH SCORE</span>
+                <span id="menuBest" class="stat-pill-val">0</span>
+            </div>
+            <div class="stat-pill">
+                <span class="stat-pill-label">DIAMOND VAULT</span>
+                <span id="menuDiamonds" class="stat-pill-val diamond">💎 0</span>
+            </div>
+        </div>
+
+        <div class="menu-actions" onclick="if(event.target.id === 'btnStart') triggerRunNow(event)">
+            <button id="btnStart" class="btn-primary" onclick="triggerRunNow(event)">▶ RUN NOW</button>
+            <button id="btnShop" class="btn-secondary" onclick="event.stopPropagation(); window.openShop && window.openShop();">🚀 CYBER GARAGE</button>
+            <button id="btnHelp" class="btn-secondary" onclick="event.stopPropagation(); window.openHelp && window.openHelp();">ℹ HOW TO PLAY</button>
+            <div class="menu-audio-row" onclick="event.stopPropagation();">
+                <button id="btnMenuMusic" class="btn-secondary btn-audio-toggle" title="Toggle Synthwave Music">🎵 MUSIC: ON</button>
+                <button id="btnMenuSFX" class="btn-secondary btn-audio-toggle" title="Toggle Sound FX">🔊 SFX: ON</button>
+            </div>
+            <button id="btnFullscreen" class="btn-secondary" style="font-size: 12px;" onclick="event.stopPropagation();">⛶ FULLSCREEN</button>
+        </div>
+
+        <div class="tap-hint blink">PRESS SPACE OR TAP RUN NOW TO LAUNCH</div>
     </div>
 
-    <!-- START MENU -->
-    <div id="startMenu" class="modal-screen" onclick="triggerRunNow(event)">
-        <img src="assets/logo.jpg" alt="Logo" class="logo-badge">
-        <h1 class="game-title">STREET RUNNER</h1>
-        <p class="game-tagline">// CYBER HIGHWAY //</p>
+    <!-- Game Over Screen -->
+    <div id="gameOver" class="modal-screen hidden" onclick="triggerRunNow(event)">
+        <h2 class="game-over-title">SYSTEM FAILURE</h2>
+        <p class="game-tagline" style="margin-bottom: 12px;">// RUN CRASHED //</p>
+        <div id="newBestBadge" class="new-best-badge hidden">★ NEW RECORD ★</div>
 
-        <div class="stats-card">
-            <div>HIGH SCORE: <span id="menuHighScore" style="color: #00f3ff; font-weight: bold;">0</span></div>
-            <div style="margin-top: 6px;">DIAMONDS: <span id="menuDiamonds" style="color: #ff36d4; font-weight: bold;">💎 0</span></div>
+        <div class="run-summary-box">
+            <div class="summary-item">
+                <span>FINAL SCORE</span>
+                <span id="finalScore">0</span>
+            </div>
+            <div class="summary-item">
+                <span>DISTANCE</span>
+                <span id="finalDistance">0m</span>
+            </div>
+            <div class="summary-item">
+                <span>DIAMONDS</span>
+                <span id="finalDiamonds" style="color: var(--cyan-neon);">💎 0</span>
+            </div>
+            <div class="summary-item">
+                <span>BEST RECORD</span>
+                <span id="finalBest">0</span>
+            </div>
         </div>
 
-        <button id="btnStartGame" class="btn-primary" onclick="triggerRunNow(event)">▶ RUN NOW</button>
-        <div class="tap-hint blink">PRESS SPACE OR TAP ANYWHERE TO RUN</div>
-
-        <div class="instructions-card">
-            <p><strong>Controls:</strong> <kbd>Space</kbd> or <kbd>↑</kbd> to Jump over low lasers & hazards.</p>
-            <p style="margin-top: 4px;"><kbd>↓</kbd> or <kbd>S</kbd> to Slide under high overhead beams.</p>
-            <p style="margin-top: 4px;">Swipe up/down or tap screen / buttons on mobile.</p>
+        <div class="menu-actions" onclick="event.stopPropagation();">
+            <button id="btnRestart" class="btn-primary" onclick="triggerRunNow(event)">⚡ RUN AGAIN</button>
+            <button id="btnMenuFromOver" class="btn-secondary" onclick="window.showMenu && window.showMenu();">MAIN MENU</button>
         </div>
-    </div>
-
-    <!-- GAME OVER SCREEN -->
-    <div id="gameOverModal" class="modal-screen hidden" onclick="triggerRunNow(event)">
-        <h2 class="game-title" style="color: #ff0055; text-shadow: 0 0 25px #ff0055;">SYSTEM FAILURE</h2>
-        <p class="game-tagline">// RUN CRASHED //</p>
-
-        <div class="stats-card" style="min-width: 260px;">
-            <div>SCORE: <span id="finalScore" style="color: #00eaff; font-weight: bold;">0</span></div>
-            <div style="margin-top: 6px;">DISTANCE: <span id="finalDistance" style="color: #ffffff; font-weight: bold;">0m</span></div>
-            <div style="margin-top: 6px;">DIAMONDS: <span id="finalDiamonds" style="color: #ff36d4; font-weight: bold;">💎 0</span></div>
-            <div style="margin-top: 6px;">BEST: <span id="finalBest" style="color: #ffe600; font-weight: bold;">0</span></div>
-        </div>
-
-        <button id="btnRestartGame" class="btn-primary" onclick="triggerRunNow(event)">⚡ RUN AGAIN</button>
         <div class="tap-hint blink">PRESS SPACE OR TAP ANYWHERE TO RUN AGAIN</div>
     </div>
 
-    <!-- PAUSE SCREEN -->
-    <div id="pauseModal" class="modal-screen hidden">
-        <h2 class="game-title" style="color: #00eaff;">STANDBY</h2>
-        <p class="game-tagline">// ENGINE PAUSED //</p>
+    <!-- Pause Screen -->
+    <div id="pauseScreen" class="modal-screen hidden">
+        <h2 class="game-over-title" style="color: var(--cyan-neon);">STANDBY</h2>
+        <p class="game-tagline" style="margin-bottom: 24px;">// 3D HIGHWAY PAUSED //</p>
 
-        <button id="btnResumeGame" class="btn-primary" onclick="window.resumeGame && window.resumeGame(event)">▶ RESUME RUN</button>
-        <button id="btnMenuFromPause" class="btn-primary" style="background: rgba(12,7,30,0.8); border: 1px solid #00eaff; font-size: 14px; margin-top: 8px;">MAIN MENU</button>
+        <div class="menu-actions">
+            <button id="btnResume" class="btn-primary" onclick="window.resumeGame && window.resumeGame();">▶ RESUME RUN</button>
+            <div class="menu-audio-row">
+                <button id="btnPauseMusic" class="btn-secondary btn-audio-toggle">🎵 MUSIC: ON</button>
+                <button id="btnPauseSFX" class="btn-secondary btn-audio-toggle">🔊 SFX: ON</button>
+            </div>
+            <button id="btnMenuFromPause" class="btn-secondary" onclick="window.showMenu && window.showMenu();">EXIT TO MENU</button>
+        </div>
     </div>
 
+    <!-- Cyber Garage / Shop Modal -->
+    <div id="shopModal" class="modal-screen hidden">
+        <div class="shop-modal-container">
+            <div class="shop-header">
+                <h3>CYBER GARAGE</h3>
+                <span class="shop-balance">💎 <span id="shopDiamonds">0</span> DIAMONDS</span>
+                <button id="btnCloseShop" class="btn-icon" style="width: 36px; height: 36px;">✕</button>
+            </div>
+            <div class="shop-content">
+                <div class="shop-section">
+                    <h4>RUNNER CHASSIS SKINS</h4>
+                    <div id="skinsList"></div>
+                </div>
+                <div class="shop-section">
+                    <h4>POWER-UP UPGRADES</h4>
+                    <div id="upgradesList"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- How To Play / 3-Lane Tutorial Modal -->
+    <div id="helpModal" class="modal-screen hidden">
+        <div class="shop-modal-container" style="max-width: 440px;">
+            <div class="shop-header">
+                <h3>FLIGHT MANUAL // 3 LANES</h3>
+                <button id="btnCloseHelp" class="btn-icon" style="width: 36px; height: 36px;">✕</button>
+            </div>
+            <div class="tutorial-grid">
+                <div class="tutorial-item">
+                    <span class="tutorial-icon">◀ ▶</span>
+                    <span class="tutorial-label">3 LANES</span>
+                    <span class="tutorial-desc">A / D or ◀ / ▶ keys or swipe left/right to dodge</span>
+                </div>
+                <div class="tutorial-item">
+                    <span class="tutorial-icon">▲</span>
+                    <span class="tutorial-label">JUMP</span>
+                    <span class="tutorial-desc">Space / W / ▲ key or swipe up to clear low lasers</span>
+                </div>
+                <div class="tutorial-item">
+                    <span class="tutorial-icon">▼</span>
+                    <span class="tutorial-label">SLIDE</span>
+                    <span class="tutorial-desc">S / ▼ key or swipe down to duck under high gates</span>
+                </div>
+                <div class="tutorial-item">
+                    <span class="tutorial-icon">⚡</span>
+                    <span class="tutorial-label">SPEED RAMP</span>
+                    <span class="tutorial-desc">Starts slow & gentle, accelerates continuously!</span>
+                </div>
+            </div>
+            <p style="font-size: 12px; color: var(--text-dim); margin-top: 8px; line-height: 1.5;">
+                Collect floating <b>Diamonds 💎</b> to unlock custom glowing racer chassis in the Cyber Garage! Power-ups include <b>Nexus Shield 🛡️</b>, <b>Quantum Magnet 🧲</b>, <b>Overdrive ⚡</b>, and <b>2X Multiplier ✖️2</b>.
+            </p>
+        </div>
+    </div>
+
+    <!-- Mobile Tactile 3-Lane Touch Controls -->
+    <div id="touchControls">
+        <div class="touch-cluster">
+            <button id="touchLeft" class="btn-touch" aria-label="Switch Left Lane">◀</button>
+            <button id="touchRight" class="btn-touch" aria-label="Switch Right Lane">▶</button>
+        </div>
+        <div class="touch-cluster">
+            <button id="touchSlide" class="btn-touch" aria-label="Slide" style="color: var(--gold-neon);">▼</button>
+            <button id="touchJump" class="btn-touch" aria-label="Jump" style="color: var(--magenta-neon);">▲</button>
+        </div>
+    </div>
 </div>
 
-<!-- Direct Fallback & Version-Busted Scripts -->
+<!-- Fallback & Instant Start Launcher -->
 <script>
     function triggerRunNow(e) {
         if (e && e.stopPropagation) e.stopPropagation();
-        const menu = document.getElementById('startMenu');
+        const menu = document.getElementById('menu');
         if (menu) {
             menu.classList.add('hidden');
             menu.style.display = 'none';
         }
-        const over = document.getElementById('gameOverModal');
+        const over = document.getElementById('gameOver');
         if (over) {
             over.classList.add('hidden');
             over.style.display = 'none';
+        }
+        const hud = document.getElementById('hud');
+        if (hud) {
+            hud.classList.remove('hidden');
+            hud.style.display = 'flex';
         }
         if (typeof window.startGame === 'function') {
             window.startGame(e);
         }
     }
 </script>
-<script src="js/state.js?v=3.0"></script>
-<script src="js/audio.js?v=3.0"></script>
-<script src="js/game.js?v=3.0"></script>
+
+<!-- Core Game Modules -->
+<script src="js/state.js?v=4.0"></script>
+<script src="js/audio.js?v=4.0"></script>
+<script src="js/particles.js?v=4.0"></script>
+<script src="js/renderer.js?v=4.0"></script>
+<script src="js/game.js?v=4.0"></script>
 
 </body>
 </html>

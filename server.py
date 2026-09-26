@@ -17,9 +17,9 @@ from urllib.parse import urlparse
 # GAME SETTINGS
 # ============================================================
 
-START_SPEED = 4.0
-MAX_SPEED = 14.0
-ACCELERATION = 0.08
+START_SPEED = 3.0
+MAX_SPEED = 14.5
+ACCELERATION = 0.075
 
 game_speed = START_SPEED
 start_time = time.time()
