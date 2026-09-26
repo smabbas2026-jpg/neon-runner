@@ -35,17 +35,27 @@ An adrenaline-fueled, high-octane 2.5D Cyberpunk Endless Street Runner mobile ga
 - **S** or **Down Arrow**: Slide
 - **Esc** or **P**: Pause
 
-## 🛠️ Local Development
+## 🛠️ Local Development & Running the Game
 
+### Option 1: Run with Standard Python (No Flask required!)
 ```bash
-# Clone the repository
-git clone https://github.com/YOUR_USERNAME/neon-runner.git
-cd neon-runner
+python server.py
+# or
+python main.py
+```
+This automatically boots a local HTTP server at [http://127.0.0.1:8000](http://127.0.0.1:8000) using Python's standard library and automatically opens your browser.
 
-# Start the local server
+### Option 2: Run with Node.js
+```bash
 npm start
 # or
-node dev-server.js
+node server.js
 ```
-
 Open [http://localhost:3050](http://localhost:3050) in your browser.
+
+## ⚡ Speed & Difficulty Progression
+- **START_SPEED**: `4.0`
+- **MAX_SPEED**: `14.0`
+- **ACCELERATION**: `0.08` per second
+Speed accelerates dynamically with survival time: `game_speed = min(START_SPEED + elapsed_time * ACCELERATION, MAX_SPEED)`.
+

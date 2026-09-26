@@ -14,9 +14,9 @@
     let currentState = STATE.MENU;
 
     // Speed settings
-    const START_SPEED = 4;
-    const MAX_SPEED = 14;
-    const ACCELERATION = 0.1;
+    const START_SPEED = 4.0;
+    const MAX_SPEED = 14.0;
+    const ACCELERATION = 0.08;
 
     // Game variables
     let game_speed = START_SPEED;
