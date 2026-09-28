@@ -165,25 +165,61 @@ mockWindow.dispatchEvent(touchMoveEvt);
 assert.strictEqual(elements.dotLane0.classList.contains('active'), true, 'Ship should switch to Left Lane (0) immediately on touchmove');
 console.log('✓ Swipe Left responded immediately during touchmove (<16ms, frame 1)!');
 
-// 3. Simulate Chained Swipe Right without lifting finger (drag to the right)
-const touchMoveRightEvt = {
+// 3. Verify that continuing to drag during the SAME swipe does NOT move to another lane
+const continueDragEvt = {
     type: 'touchmove',
     target: elements['canvas'],
     cancelable: true,
     preventDefault() {},
-    changedTouches: [{ identifier: 101, clientX: 415, clientY: 400 }] // subDx = +30px (> 22px threshold)
+    changedTouches: [{ identifier: 101, clientX: 300, clientY: 400 }] // moved another 85px left!
 };
-mockWindow.dispatchEvent(touchMoveRightEvt);
-assert.strictEqual(elements.dotLane1.classList.contains('active'), true, 'Ship should chain-switch back to Center Lane (1) during continuous drag');
-console.log('✓ Continuous chained swipe right during drag verified without lifting finger!');
+mockWindow.dispatchEvent(continueDragEvt);
+assert.strictEqual(elements.dotLane0.classList.contains('active'), true, 'Continuing drag must NOT change lane again (strictly 1 lane per swipe)');
+console.log('✓ Verified: One swipe moves exactly one lane, even on extended drags!');
 
-// End touch
+// End touch 101
 mockWindow.dispatchEvent({
     type: 'touchend',
     target: elements['canvas'],
     cancelable: true,
     preventDefault() {},
-    changedTouches: [{ identifier: 101, clientX: 415, clientY: 400 }]
+    changedTouches: [{ identifier: 101, clientX: 300, clientY: 400 }]
+});
+
+// A new, separate swipe right takes it from Lane 0 -> Lane 1
+mockWindow.dispatchEvent({
+    type: 'touchstart',
+    target: elements['canvas'],
+    cancelable: true,
+    preventDefault() {},
+    changedTouches: [{ identifier: 105, clientX: 300, clientY: 400 }]
+});
+mockWindow.dispatchEvent({
+    type: 'touchmove',
+    target: elements['canvas'],
+    cancelable: true,
+    preventDefault() {},
+    changedTouches: [{ identifier: 105, clientX: 330, clientY: 400 }] // moved +30px right
+});
+assert.strictEqual(elements.dotLane1.classList.contains('active'), true, 'Separate new swipe moves to Center Lane (1)');
+console.log('✓ Verified: Second swipe correctly moves to next lane (Center).');
+
+// Continuing drag right does NOT move to lane 2
+mockWindow.dispatchEvent({
+    type: 'touchmove',
+    target: elements['canvas'],
+    cancelable: true,
+    preventDefault() {},
+    changedTouches: [{ identifier: 105, clientX: 450, clientY: 400 }] // moved another 120px right!
+});
+assert.strictEqual(elements.dotLane1.classList.contains('active'), true, 'Continuing drag right must NOT skip into Right Lane (2)');
+
+mockWindow.dispatchEvent({
+    type: 'touchend',
+    target: elements['canvas'],
+    cancelable: true,
+    preventDefault() {},
+    changedTouches: [{ identifier: 105, clientX: 450, clientY: 400 }]
 });
 
 // 4. Test Swipe Up (Jump)

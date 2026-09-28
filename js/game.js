@@ -943,8 +943,7 @@
     function initControls() {
         // Multi-touch tracking Map so both thumbs work independently on mobile & tablets!
         const activeTouches = new Map();
-        const SWIPE_THRESHOLD = 10; // Ultra-crisp displacement (px) for immediate frame-1 reaction
-        const RETRIGGER_THRESHOLD = 22; // Distance to allow continuous chained lane switches on drag
+        const SWIPE_THRESHOLD = 14; // Crisp displacement (px) for immediate frame-1 reaction
 
         function isInteractiveElement(target) {
             if (!target || !target.closest) return false;
@@ -972,8 +971,6 @@
                 activeTouches.set(t.identifier, {
                     startX: t.clientX,
                     startY: t.clientY,
-                    lastX: t.clientX,
-                    lastY: t.clientY,
                     startTime: performance.now(),
                     triggered: false
                 });
@@ -992,15 +989,15 @@
                 const state = activeTouches.get(t.identifier);
                 if (!state) continue;
 
-                const clientX = t.clientX;
-                const clientY = t.clientY;
-                const dx = clientX - state.startX;
-                const dy = clientY - state.startY;
-                const absDx = Math.abs(dx);
-                const absDy = Math.abs(dy);
-
+                // STRICT: 1 swipe = 1 lane move. Once triggered, do not allow multiple lane shifts in a single swipe!
                 if (!state.triggered) {
-                    // Trigger swipe immediately during touchmove as soon as threshold is reached (<16ms)
+                    const clientX = t.clientX;
+                    const clientY = t.clientY;
+                    const dx = clientX - state.startX;
+                    const dy = clientY - state.startY;
+                    const absDx = Math.abs(dx);
+                    const absDy = Math.abs(dy);
+
                     if (absDx >= SWIPE_THRESHOLD || absDy >= SWIPE_THRESHOLD) {
                         if (absDx >= absDy) {
                             if (dx > 0) moveRight();
@@ -1009,27 +1006,8 @@
                             if (dy < 0) jump();
                             else slide();
                         }
+                        // Lock this swipe gesture so it only moves 1 lane per swipe
                         state.triggered = true;
-                        state.lastX = clientX;
-                        state.lastY = clientY;
-                    }
-                } else {
-                    // Continuous chained swipe support (e.g. double lane switch or swipe then jump)
-                    const subDx = clientX - state.lastX;
-                    const subDy = clientY - state.lastY;
-                    const absSubDx = Math.abs(subDx);
-                    const absSubDy = Math.abs(subDy);
-
-                    if (absSubDx >= RETRIGGER_THRESHOLD && absSubDx >= absSubDy) {
-                        if (subDx > 0) moveRight();
-                        else moveLeft();
-                        state.lastX = clientX;
-                        state.lastY = clientY;
-                    } else if (absSubDy >= RETRIGGER_THRESHOLD) {
-                        if (subDy < 0) jump();
-                        else slide();
-                        state.lastX = clientX;
-                        state.lastY = clientY;
                     }
                 }
             }
@@ -1045,7 +1023,7 @@
                 const t = e.changedTouches[i];
                 const state = activeTouches.get(t.identifier);
                 if (state) {
-                    // Fallback for ultra-fast flick or stationary tap
+                    // Fallback for ultra-fast flick or stationary tap only if not already triggered
                     if (!state.triggered) {
                         const clientX = t.clientX;
                         const clientY = t.clientY;
@@ -1055,7 +1033,7 @@
                         const absDy = Math.abs(dy);
                         const duration = performance.now() - state.startTime;
 
-                        if (absDx >= 8 || absDy >= 8) {
+                        if (absDx >= 12 || absDy >= 12) {
                             if (absDx >= absDy) {
                                 if (dx > 0) moveRight();
                                 else moveLeft();
@@ -1063,12 +1041,13 @@
                                 if (dy < 0) jump();
                                 else slide();
                             }
-                        } else if (duration < 350 && currentState === STATE.PLAYING) {
-                            // Stationary quick tap: left 40% screen moves left, right 40% moves right
+                            state.triggered = true;
+                        } else if (duration < 250 && absDx < 6 && absDy < 6 && currentState === STATE.PLAYING) {
+                            // Stationary quick tap: left 35% screen moves left, right 35% moves right
                             const screenW = (typeof window !== 'undefined' && window.innerWidth) ? window.innerWidth : 800;
-                            if (clientX < screenW * 0.40) {
+                            if (clientX < screenW * 0.35) {
                                 moveLeft();
-                            } else if (clientX > screenW * 0.60) {
+                            } else if (clientX > screenW * 0.65) {
                                 moveRight();
                             }
                         }
@@ -1085,21 +1064,14 @@
             }
         }
 
-        // Direct non-passive attachment to window and canvas to eliminate any gesture delay
+        // Single window attachment to prevent duplicate bubbling between canvas and window
         window.addEventListener('touchstart', handleTouchStart, { passive: false });
         window.addEventListener('touchmove', handleTouchMove, { passive: false });
         window.addEventListener('touchend', handleTouchEnd, { passive: false });
         window.addEventListener('touchcancel', handleTouchCancel, { passive: false });
 
+        // Desktop mouse drag support (strictly 1 lane shift per drag)
         const canvasEl = document.getElementById('canvas');
-        if (canvasEl && canvasEl.addEventListener && canvasEl !== window) {
-            canvasEl.addEventListener('touchstart', handleTouchStart, { passive: false });
-            canvasEl.addEventListener('touchmove', handleTouchMove, { passive: false });
-            canvasEl.addEventListener('touchend', handleTouchEnd, { passive: false });
-            canvasEl.addEventListener('touchcancel', handleTouchCancel, { passive: false });
-        }
-
-        // Desktop mouse drag support
         let mouseDragState = null;
         if (canvasEl && canvasEl.addEventListener) {
             canvasEl.addEventListener('mousedown', (e) => {
@@ -1107,8 +1079,6 @@
                 mouseDragState = {
                     startX: e.clientX,
                     startY: e.clientY,
-                    lastX: e.clientX,
-                    lastY: e.clientY,
                     startTime: performance.now(),
                     triggered: false
                 };
@@ -1116,13 +1086,13 @@
 
             window.addEventListener('mousemove', (e) => {
                 if (!mouseDragState || currentState !== STATE.PLAYING) return;
-                const dx = e.clientX - mouseDragState.startX;
-                const dy = e.clientY - mouseDragState.startY;
-                const absDx = Math.abs(dx);
-                const absDy = Math.abs(dy);
-
                 if (!mouseDragState.triggered) {
-                    if (absDx >= 12 || absDy >= 12) {
+                    const dx = e.clientX - mouseDragState.startX;
+                    const dy = e.clientY - mouseDragState.startY;
+                    const absDx = Math.abs(dx);
+                    const absDy = Math.abs(dy);
+
+                    if (absDx >= 16 || absDy >= 16) {
                         if (absDx >= absDy) {
                             if (dx > 0) moveRight();
                             else moveLeft();
@@ -1131,17 +1101,6 @@
                             else slide();
                         }
                         mouseDragState.triggered = true;
-                        mouseDragState.lastX = e.clientX;
-                        mouseDragState.lastY = e.clientY;
-                    }
-                } else {
-                    const subDx = e.clientX - mouseDragState.lastX;
-                    const subDy = e.clientY - mouseDragState.lastY;
-                    if (Math.abs(subDx) >= 24) {
-                        if (subDx > 0) moveRight();
-                        else moveLeft();
-                        mouseDragState.lastX = e.clientX;
-                        mouseDragState.lastY = e.clientY;
                     }
                 }
             });
