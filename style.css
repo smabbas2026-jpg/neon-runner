@@ -24,7 +24,7 @@
     user-select: none;
     -webkit-user-select: none;
     -webkit-touch-callout: none;
-    touch-action: manipulation;
+    touch-action: none;
 }
 
 html, body {
@@ -35,6 +35,8 @@ html, body {
     font-family: var(--font-body);
     color: var(--text-main);
     -webkit-font-smoothing: antialiased;
+    overscroll-behavior: none !important;
+    touch-action: none !important;
 }
 
 #game {
@@ -43,6 +45,8 @@ html, body {
     height: 100vh;
     height: 100dvh; /* Mobile dynamic viewport height */
     overflow: hidden;
+    touch-action: none;
+    overscroll-behavior: none;
     background: radial-gradient(circle at 50% 30%, #150a2e 0%, #050212 70%, #020108 100%);
 }
 
@@ -54,6 +58,7 @@ canvas {
     height: 100%;
     display: block;
     z-index: 1;
+    touch-action: none;
 }
 
 /* ==========================================================
@@ -744,28 +749,30 @@ h2.game-over-title {
    ========================================================== */
 #touchControls {
     position: absolute;
-    bottom: env(safe-area-inset-bottom, 22px);
-    left: 15px;
-    right: 15px;
+    bottom: max(18px, env(safe-area-inset-bottom, 18px));
+    left: 16px;
+    right: 16px;
     z-index: 25;
     display: flex;
     justify-content: space-between;
     pointer-events: none;
+    touch-action: none !important;
 }
 
 .touch-cluster {
     display: flex;
     gap: 14px;
     pointer-events: auto;
+    touch-action: none !important;
 }
 
 .btn-touch {
     width: 60px;
     height: 60px;
     border-radius: 18px;
-    background: rgba(12, 6, 32, 0.8);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    background: rgba(12, 6, 32, 0.85);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     border: 1.5px solid rgba(0, 243, 255, 0.45);
     color: var(--cyan-neon);
     font-size: 22px;
@@ -775,23 +782,64 @@ h2.game-over-title {
     justify-content: center;
     box-shadow: 0 0 16px rgba(0, 243, 255, 0.25);
     cursor: pointer;
-    transition: transform 0.1s ease, background 0.1s ease;
+    touch-action: none !important;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    -webkit-user-select: none;
+    transition: transform 0.08s ease, background 0.08s ease, box-shadow 0.08s ease, border-color 0.08s ease;
 }
 
-.btn-touch:active {
+.btn-touch:active,
+.btn-touch.touch-active {
     transform: scale(0.88);
-    background: rgba(0, 243, 255, 0.35);
-    box-shadow: 0 0 25px rgba(0, 243, 255, 0.6);
+    background: rgba(0, 243, 255, 0.38);
+    border-color: #00f3ff;
+    box-shadow: 0 0 25px rgba(0, 243, 255, 0.7), inset 0 0 10px rgba(0, 243, 255, 0.4);
 }
 
+/* Tablet Media Queries (iPad, iPad Mini, iPad Pro, Android Tablets) */
+@media (min-width: 600px) and (max-width: 1200px) {
+    #touchControls {
+        bottom: max(26px, env(safe-area-inset-bottom, 26px));
+        left: 24px;
+        right: 24px;
+    }
+    .touch-cluster {
+        gap: 16px;
+    }
+    .btn-touch {
+        width: 72px;
+        height: 72px;
+        font-size: 26px;
+        border-radius: 22px;
+        box-shadow: 0 0 22px rgba(0, 243, 255, 0.32);
+    }
+    .hud-panel {
+        padding: 8px 16px;
+    }
+    .hud-val {
+        font-size: 22px;
+    }
+    .lane-dot {
+        width: 26px;
+        height: 26px;
+        font-size: 12px;
+    }
+    #speedGauge {
+        font-size: 13px;
+    }
+}
+
+/* Small Mobile Screens */
 @media (max-width: 480px) {
     h1.game-title {
         font-size: 30px;
     }
     .btn-touch {
-        width: 54px;
-        height: 54px;
+        width: 56px;
+        height: 56px;
         font-size: 20px;
+        border-radius: 16px;
     }
     .hud-panel {
         padding: 6px 12px;

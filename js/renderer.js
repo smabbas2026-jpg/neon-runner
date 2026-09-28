@@ -26,7 +26,24 @@
 
         init(canvas) {
             this.canvas = canvas;
-            this.ctx = canvas.getContext('2d');
+            this.isTouch = (typeof window !== 'undefined' && (('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || window.innerWidth < 1200));
+
+            try {
+                this.ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
+            } catch (e) {}
+            if (!this.ctx) this.ctx = canvas.getContext('2d');
+
+            // Eliminate expensive GPU Gaussian blur convolution on mobile/tablets for locked 60-120fps
+            try {
+                if (this.isTouch && this.ctx) {
+                    Object.defineProperty(this.ctx, 'shadowBlur', {
+                        get() { return 0; },
+                        set() {},
+                        configurable: true
+                    });
+                }
+            } catch (e) {}
+
             this.resize();
 
             // Attempt to load synthwave background image
@@ -193,10 +210,12 @@
             if (!this.canvas) return;
             this.W = window.innerWidth;
             this.H = window.innerHeight;
-            this.dpr = Math.min(window.devicePixelRatio || 1, 2);
+            // Balance ultra-crisp visuals with smooth 60-120fps on high-res tablets & phones
+            const maxDpr = (this.W >= 768 || this.H >= 768) ? 1.5 : 2;
+            this.dpr = Math.min(window.devicePixelRatio || 1, maxDpr);
 
-            this.canvas.width = this.W * this.dpr;
-            this.canvas.height = this.H * this.dpr;
+            this.canvas.width = Math.round(this.W * this.dpr);
+            this.canvas.height = Math.round(this.H * this.dpr);
             this.canvas.style.width = this.W + 'px';
             this.canvas.style.height = this.H + 'px';
 
@@ -209,7 +228,10 @@
         }
 
         getRoadMetrics() {
-            const roadWidth = Math.min(this.W * 0.88, 540);
+            // Adaptive road width for phones, tablets, and wide screens
+            const isTablet = (this.W >= 600 && this.W <= 1200);
+            const maxRoad = isTablet ? 620 : (this.W > 1200 ? 560 : 520);
+            const roadWidth = Math.min(this.W * (isTablet ? 0.84 : 0.88), maxRoad);
             const roadLeft = (this.W - roadWidth) / 2;
             const roadTopWidth = roadWidth * 0.30;
             const roadTopLeft = (this.W - roadTopWidth) / 2;
@@ -376,8 +398,8 @@
             const ctx = this.ctx;
             const { roadWidth, roadLeft, roadTopWidth, roadTopLeft, horizonY } = this.getRoadMetrics();
 
-            // Advance scenery depths
-            const moveDelta = speed * (dt / 16.67) * 0.04;
+            // Advance scenery depths with punchier velocity
+            const moveDelta = speed * (dt / 16.67) * 0.055;
             const signs = ['STREET', 'RUNNER', 'CYBER', 'NEON', 'SYNTH', 'TOKYO', 'HOTEL', '2099', 'NEXUS', 'RAM', 'MATRIX', 'VOX'];
             const neonColors = ['#00f3ff', '#ff007f', '#ffe600', '#00ff66', '#b700ff'];
             const windowTints = ['#00f3ff', '#ffe600', '#ff00a0', '#e0ffff', '#00ffaa'];
@@ -1072,7 +1094,7 @@
             }
 
             // Moving horizontal grid bars (gives high-speed velocity illusion)
-            this.roadOffset = (this.roadOffset + speed * (dt / 16.67) * 0.04) % 1.0;
+            this.roadOffset = (this.roadOffset + speed * (dt / 16.67) * 0.055) % 1.0;
             const barCount = 14;
 
             ctx.strokeStyle = 'rgba(255, 0, 160, 0.35)';

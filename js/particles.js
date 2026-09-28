@@ -224,16 +224,20 @@
                 ctx.restore();
             }
 
-            // Draw particles
+            // Draw particles with high-performance halo glow (zero blur lag on mobile/tablets)
             if (this.particles.length > 0) {
                 ctx.save();
                 for (const p of this.particles) {
-                    ctx.globalAlpha = Math.max(0, p.alpha);
-                    ctx.fillStyle = p.color;
-                    if (p.glow) {
-                        ctx.shadowColor = p.color;
-                        ctx.shadowBlur = 8;
+                    const alpha = Math.max(0, p.alpha);
+                    if (p.glow && alpha > 0.1) {
+                        ctx.globalAlpha = alpha * 0.35;
+                        ctx.fillStyle = p.color;
+                        ctx.beginPath();
+                        ctx.arc(p.x, p.y, Math.max(1, p.size * 2), 0, Math.PI * 2);
+                        ctx.fill();
                     }
+                    ctx.globalAlpha = alpha;
+                    ctx.fillStyle = p.color;
                     ctx.beginPath();
                     ctx.arc(p.x, p.y, Math.max(0.5, p.size), 0, Math.PI * 2);
                     ctx.fill();
@@ -248,9 +252,11 @@
                 ctx.font = '900 16px "Orbitron", sans-serif';
                 for (const t of this.floatingTexts) {
                     ctx.globalAlpha = Math.max(0, t.alpha);
+                    // Dark crisp stroke for high readability without expensive blur
+                    ctx.strokeStyle = '#050212';
+                    ctx.lineWidth = 3;
+                    ctx.strokeText(t.text, t.x, t.y);
                     ctx.fillStyle = t.color;
-                    ctx.shadowColor = t.color;
-                    ctx.shadowBlur = 10;
                     ctx.fillText(t.text, t.x, t.y);
                 }
                 ctx.restore();

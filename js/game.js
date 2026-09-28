@@ -103,7 +103,7 @@
             if (window.GameRenderer) {
                 window.GameRenderer.resize();
                 player.x = window.GameRenderer.laneX(player.lane, 1.0);
-                player.y = window.GameRenderer.H - 140;
+                player.y = window.GameRenderer.H - Math.max(130, Math.min(180, window.GameRenderer.H * 0.20));
             }
         });
 
@@ -115,7 +115,7 @@
         // Initial 3D player placement in Center Lane (1)
         if (window.GameRenderer) {
             player.x = window.GameRenderer.laneX(1, 1.0);
-            player.y = window.GameRenderer.H - 140;
+            player.y = window.GameRenderer.H - Math.max(130, Math.min(180, window.GameRenderer.H * 0.20));
         }
 
         // Launch ambient background loop
@@ -163,7 +163,7 @@
         game_speed = START_SPEED;
         speed = game_speed;
 
-        spawnTimer = 900;
+        spawnTimer = 650;
         powerupSpawnTimer = 16000;
         diamondCombo = 0;
         comboResetTimer = 0;
@@ -182,7 +182,7 @@
         player.lane = 1;
         if (window.GameRenderer) {
             player.x = window.GameRenderer.laneX(1, 1.0);
-            player.y = window.GameRenderer.H - 140;
+            player.y = window.GameRenderer.H - Math.max(130, Math.min(180, window.GameRenderer.H * 0.20));
         }
         player.vx = 0;
         player.jumpHeight = 0;
@@ -361,22 +361,35 @@
 
     function jump() {
         if (currentState !== STATE.PLAYING) return;
-        if (!player.jumping && !player.sliding) {
+        // Jump cancels slide immediately for instant responsive reaction
+        if (player.sliding) {
+            player.sliding = false;
+            player.slideTimer = 0;
+        }
+        if (!player.jumping) {
             player.jumping = true;
-            player.jumpVelocity = -15.5;
+            player.jumpVelocity = -17.5;
             safeAudio(a => a.playJump && a.playJump());
             triggerHaptic([20]);
+            if (window.Particles) {
+                window.Particles.emitThruster(player.x, player.y + 10, '#00f3ff', 6);
+            }
         }
     }
 
     function slide() {
         if (currentState !== STATE.PLAYING) return;
-        if (!player.jumping) {
-            player.sliding = true;
-            player.slideTimer = 480;
+        // If jumping in air, fast-dive down to the track immediately
+        if (player.jumping) {
+            player.jumpVelocity = Math.max(player.jumpVelocity, 28.0);
             safeAudio(a => a.playSlide && a.playSlide());
             triggerHaptic([25]);
+            return;
         }
+        player.sliding = true;
+        player.slideTimer = 340;
+        safeAudio(a => a.playSlide && a.playSlide());
+        triggerHaptic([25]);
     }
 
     /* ==========================================================
@@ -486,8 +499,14 @@
         const targetX = window.GameRenderer.laneX(player.lane, 1.0);
         const prevX = player.x;
 
-        // Smooth 3-lane lateral interpolation
-        player.x += (targetX - player.x) * Math.min(1, (dt / 1000) * 16);
+        // Ultra-snappy 3-lane lateral interpolation
+        // Rate 56.0 provides immediate reaction (~25-35ms lane shift) with smooth banking
+        const moveRate = 56.0;
+        const lerpFactor = 1 - Math.exp(-moveRate * (dt / 1000));
+        player.x += (targetX - player.x) * lerpFactor;
+        if (Math.abs(targetX - player.x) < 3.0) {
+            player.x = targetX;
+        }
         player.vx = player.x - prevX;
 
         // Emit thruster flame particles
@@ -501,10 +520,10 @@
             );
         }
 
-        // Jump physics
+        // Jump physics (crisp, snappy arc)
         if (player.jumping) {
             player.jumpHeight += player.jumpVelocity * (dt / 16.67);
-            player.jumpVelocity += 0.82 * (dt / 16.67);
+            player.jumpVelocity += 1.05 * (dt / 16.67);
 
             if (player.jumpHeight <= 0) {
                 player.jumpHeight = 0;
@@ -575,7 +594,7 @@
         if (!window.GameRenderer) return;
 
         const currentSpeed = player.hasOverdrive ? speed * 1.6 : speed;
-        const movement = currentSpeed * (dt / 16.67) * 2.2;
+        const movement = currentSpeed * (dt / 16.67) * 2.75;
         const H = window.GameRenderer.H;
         const horizonY = H * 0.38;
         const trackLength = H - horizonY;
@@ -636,7 +655,7 @@
 
             const currentSpeed = player.hasOverdrive ? speed * 1.6 : speed;
             // Spawning accelerates smoothly as speed progresses
-            spawnTimer = Math.max(480, 2100 - (currentSpeed - START_SPEED) * 135);
+            spawnTimer = Math.max(420, 1750 - (currentSpeed - START_SPEED) * 120);
         }
 
         // Power-up capsule spawn
@@ -856,7 +875,7 @@
     function gameLoop(time) {
         if (currentState !== STATE.PLAYING) return;
 
-        const dt = Math.min(time - lastTime || 16.67, 45);
+        const dt = Math.max(1, Math.min(time - lastTime || 16.67, 33.33));
         lastTime = time;
 
         updatePlayer(dt);
@@ -922,36 +941,215 @@
        ========================================================== */
 
     function initControls() {
-        // Touch Swipe Gestures
-        let touchStartX = 0;
-        let touchStartY = 0;
-        let touchStartTime = 0;
+        // Multi-touch tracking Map so both thumbs work independently on mobile & tablets!
+        const activeTouches = new Map();
+        const SWIPE_THRESHOLD = 10; // Ultra-crisp displacement (px) for immediate frame-1 reaction
+        const RETRIGGER_THRESHOLD = 22; // Distance to allow continuous chained lane switches on drag
 
-        window.addEventListener('touchstart', (e) => {
-            const touch = e.changedTouches[0];
-            touchStartX = touch.clientX;
-            touchStartY = touch.clientY;
-            touchStartTime = performance.now();
-        }, { passive: true });
+        function isInteractiveElement(target) {
+            if (!target || !target.closest) return false;
+            // Never treat touch controls wrapper or cluster container as interactive (must allow swiping across/near them)
+            if (target.id === 'touchControls' || (target.classList && target.classList.contains('touch-cluster'))) {
+                return false;
+            }
+            return !!target.closest(
+                '.btn-touch, .modal-screen:not(.hidden), .btn-primary, .btn-secondary, .btn-icon, #btnPause, #btnSound'
+            );
+        }
 
-        window.addEventListener('touchend', (e) => {
-            const touch = e.changedTouches[0];
-            const dx = touch.clientX - touchStartX;
-            const dy = touch.clientY - touchStartY;
-            const threshold = 30;
+        function handleTouchStart(e) {
+            if (isInteractiveElement(e.target)) return;
 
-            if (Math.abs(dx) > Math.abs(dy)) {
-                if (Math.abs(dx) > threshold) {
-                    if (dx > 0) moveRight();
-                    else moveLeft();
-                }
-            } else {
-                if (Math.abs(dy) > threshold) {
-                    if (dy < 0) jump();
-                    else slide();
+            // In gameplay, preventDefault synchronously on touchstart to completely bypass
+            // mobile browser gesture arbitration (which otherwise delays events by 1.5 - 2 seconds!)
+            if (currentState === STATE.PLAYING && e.cancelable) {
+                e.preventDefault();
+            }
+
+            if (!e.changedTouches) return;
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const t = e.changedTouches[i];
+                activeTouches.set(t.identifier, {
+                    startX: t.clientX,
+                    startY: t.clientY,
+                    lastX: t.clientX,
+                    lastY: t.clientY,
+                    startTime: performance.now(),
+                    triggered: false
+                });
+            }
+        }
+
+        function handleTouchMove(e) {
+            if (currentState === STATE.PLAYING && e.cancelable) {
+                // Prevent browser pull-to-refresh & navigation swipe delays
+                e.preventDefault();
+            }
+
+            if (!e.changedTouches) return;
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const t = e.changedTouches[i];
+                const state = activeTouches.get(t.identifier);
+                if (!state) continue;
+
+                const clientX = t.clientX;
+                const clientY = t.clientY;
+                const dx = clientX - state.startX;
+                const dy = clientY - state.startY;
+                const absDx = Math.abs(dx);
+                const absDy = Math.abs(dy);
+
+                if (!state.triggered) {
+                    // Trigger swipe immediately during touchmove as soon as threshold is reached (<16ms)
+                    if (absDx >= SWIPE_THRESHOLD || absDy >= SWIPE_THRESHOLD) {
+                        if (absDx >= absDy) {
+                            if (dx > 0) moveRight();
+                            else moveLeft();
+                        } else {
+                            if (dy < 0) jump();
+                            else slide();
+                        }
+                        state.triggered = true;
+                        state.lastX = clientX;
+                        state.lastY = clientY;
+                    }
+                } else {
+                    // Continuous chained swipe support (e.g. double lane switch or swipe then jump)
+                    const subDx = clientX - state.lastX;
+                    const subDy = clientY - state.lastY;
+                    const absSubDx = Math.abs(subDx);
+                    const absSubDy = Math.abs(subDy);
+
+                    if (absSubDx >= RETRIGGER_THRESHOLD && absSubDx >= absSubDy) {
+                        if (subDx > 0) moveRight();
+                        else moveLeft();
+                        state.lastX = clientX;
+                        state.lastY = clientY;
+                    } else if (absSubDy >= RETRIGGER_THRESHOLD) {
+                        if (subDy < 0) jump();
+                        else slide();
+                        state.lastX = clientX;
+                        state.lastY = clientY;
+                    }
                 }
             }
-        }, { passive: true });
+        }
+
+        function handleTouchEnd(e) {
+            if (currentState === STATE.PLAYING && e.cancelable && !isInteractiveElement(e.target)) {
+                e.preventDefault();
+            }
+
+            if (!e.changedTouches) return;
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const t = e.changedTouches[i];
+                const state = activeTouches.get(t.identifier);
+                if (state) {
+                    // Fallback for ultra-fast flick or stationary tap
+                    if (!state.triggered) {
+                        const clientX = t.clientX;
+                        const clientY = t.clientY;
+                        const dx = clientX - state.startX;
+                        const dy = clientY - state.startY;
+                        const absDx = Math.abs(dx);
+                        const absDy = Math.abs(dy);
+                        const duration = performance.now() - state.startTime;
+
+                        if (absDx >= 8 || absDy >= 8) {
+                            if (absDx >= absDy) {
+                                if (dx > 0) moveRight();
+                                else moveLeft();
+                            } else {
+                                if (dy < 0) jump();
+                                else slide();
+                            }
+                        } else if (duration < 350 && currentState === STATE.PLAYING) {
+                            // Stationary quick tap: left 40% screen moves left, right 40% moves right
+                            const screenW = (typeof window !== 'undefined' && window.innerWidth) ? window.innerWidth : 800;
+                            if (clientX < screenW * 0.40) {
+                                moveLeft();
+                            } else if (clientX > screenW * 0.60) {
+                                moveRight();
+                            }
+                        }
+                    }
+                    activeTouches.delete(t.identifier);
+                }
+            }
+        }
+
+        function handleTouchCancel(e) {
+            if (!e.changedTouches) return;
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                activeTouches.delete(e.changedTouches[i].identifier);
+            }
+        }
+
+        // Direct non-passive attachment to window and canvas to eliminate any gesture delay
+        window.addEventListener('touchstart', handleTouchStart, { passive: false });
+        window.addEventListener('touchmove', handleTouchMove, { passive: false });
+        window.addEventListener('touchend', handleTouchEnd, { passive: false });
+        window.addEventListener('touchcancel', handleTouchCancel, { passive: false });
+
+        const canvasEl = document.getElementById('canvas');
+        if (canvasEl && canvasEl.addEventListener && canvasEl !== window) {
+            canvasEl.addEventListener('touchstart', handleTouchStart, { passive: false });
+            canvasEl.addEventListener('touchmove', handleTouchMove, { passive: false });
+            canvasEl.addEventListener('touchend', handleTouchEnd, { passive: false });
+            canvasEl.addEventListener('touchcancel', handleTouchCancel, { passive: false });
+        }
+
+        // Desktop mouse drag support
+        let mouseDragState = null;
+        if (canvasEl && canvasEl.addEventListener) {
+            canvasEl.addEventListener('mousedown', (e) => {
+                if (currentState !== STATE.PLAYING || (e.button !== undefined && e.button !== 0)) return;
+                mouseDragState = {
+                    startX: e.clientX,
+                    startY: e.clientY,
+                    lastX: e.clientX,
+                    lastY: e.clientY,
+                    startTime: performance.now(),
+                    triggered: false
+                };
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!mouseDragState || currentState !== STATE.PLAYING) return;
+                const dx = e.clientX - mouseDragState.startX;
+                const dy = e.clientY - mouseDragState.startY;
+                const absDx = Math.abs(dx);
+                const absDy = Math.abs(dy);
+
+                if (!mouseDragState.triggered) {
+                    if (absDx >= 12 || absDy >= 12) {
+                        if (absDx >= absDy) {
+                            if (dx > 0) moveRight();
+                            else moveLeft();
+                        } else {
+                            if (dy < 0) jump();
+                            else slide();
+                        }
+                        mouseDragState.triggered = true;
+                        mouseDragState.lastX = e.clientX;
+                        mouseDragState.lastY = e.clientY;
+                    }
+                } else {
+                    const subDx = e.clientX - mouseDragState.lastX;
+                    const subDy = e.clientY - mouseDragState.lastY;
+                    if (Math.abs(subDx) >= 24) {
+                        if (subDx > 0) moveRight();
+                        else moveLeft();
+                        mouseDragState.lastX = e.clientX;
+                        mouseDragState.lastY = e.clientY;
+                    }
+                }
+            });
+
+            window.addEventListener('mouseup', () => {
+                mouseDragState = null;
+            });
+        }
 
         // Keyboard Controls
         window.addEventListener('keydown', (e) => {
@@ -971,28 +1169,67 @@
             }
         });
 
-        // Tactile On-Screen Buttons
+        // Tactile On-Screen Buttons with zero-latency Pointer / Touch Events & Auto-Repeat
         const btnLeft = document.getElementById('touchLeft');
         const btnRight = document.getElementById('touchRight');
         const btnJump = document.getElementById('touchJump');
         const btnSlide = document.getElementById('touchSlide');
 
-        if (btnLeft) {
-            btnLeft.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); moveLeft(); });
-            btnLeft.addEventListener('click', (e) => { e.stopPropagation(); moveLeft(); });
+        function setupTactileButton(btn, action) {
+            if (!btn) return;
+            let isPressed = false;
+            let repeatTimer = null;
+
+            const handlePress = (e) => {
+                if (e.cancelable) e.preventDefault();
+                if (e.stopPropagation) e.stopPropagation();
+                if (isPressed) return;
+                isPressed = true;
+                btn.classList.add('touch-active');
+                action();
+                triggerHaptic([15]);
+
+                clearTimeout(repeatTimer);
+                repeatTimer = setTimeout(() => {
+                    if (isPressed) {
+                        action();
+                        triggerHaptic([12]);
+                    }
+                }, 200);
+            };
+
+            const handleRelease = (e) => {
+                if (e && e.stopPropagation) e.stopPropagation();
+                isPressed = false;
+                clearTimeout(repeatTimer);
+                btn.classList.remove('touch-active');
+            };
+
+            // Register both touchstart and pointerdown with isPressed guard for 0ms response
+            btn.addEventListener('touchstart', handlePress, { passive: false });
+            btn.addEventListener('touchend', handleRelease, { passive: false });
+            btn.addEventListener('touchcancel', handleRelease, { passive: false });
+
+            btn.addEventListener('pointerdown', handlePress, { passive: false });
+            btn.addEventListener('pointerup', handleRelease);
+            btn.addEventListener('pointercancel', handleRelease);
+            btn.addEventListener('pointerleave', handleRelease);
+
+            btn.addEventListener('mousedown', handlePress);
+            btn.addEventListener('mouseup', handleRelease);
+            btn.addEventListener('mouseleave', handleRelease);
+
+            // Prevent ghost click / double firing
+            btn.addEventListener('click', (e) => {
+                if (e.stopPropagation) e.stopPropagation();
+                if (e.preventDefault) e.preventDefault();
+            });
         }
-        if (btnRight) {
-            btnRight.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); moveRight(); });
-            btnRight.addEventListener('click', (e) => { e.stopPropagation(); moveRight(); });
-        }
-        if (btnJump) {
-            btnJump.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); jump(); });
-            btnJump.addEventListener('click', (e) => { e.stopPropagation(); jump(); });
-        }
-        if (btnSlide) {
-            btnSlide.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); slide(); });
-            btnSlide.addEventListener('click', (e) => { e.stopPropagation(); slide(); });
-        }
+
+        setupTactileButton(btnLeft, moveLeft);
+        setupTactileButton(btnRight, moveRight);
+        setupTactileButton(btnJump, jump);
+        setupTactileButton(btnSlide, slide);
     }
 
     /* ==========================================================
