@@ -163,7 +163,7 @@
         game_speed = START_SPEED;
         speed = game_speed;
 
-        spawnTimer = 650;
+        spawnTimer = 2200;
         powerupSpawnTimer = 16000;
         diamondCombo = 0;
         comboResetTimer = 0;
@@ -430,11 +430,33 @@
     function spawnObstaclePattern() {
         if (!window.GameRenderer) return;
 
-        const types = ['low', 'high', 'barricade', 'barricade'];
-        // At early/low speeds, only block 1 lane so player learns smoothly.
-        // At higher speeds (> 7.5), occasionally block 2 lanes (guaranteeing 1 clear lane).
-        const blockedCount = (speed > 7.5 && Math.random() > 0.45) ? 2 : 1;
+        // Difficulty progression calibrated for all devices:
+        // Tier 1 (speed < 5.5, early run): ONLY 1 lane blocked (2 lanes wide open).
+        //        Prefers jump & slide obstacles (70%) so player learns vertical timing safely.
+        // Tier 2 (5.5 <= speed < 9.5, mid run): 75% 1 lane blocked, 25% 2 lanes blocked.
+        // Tier 3 (speed >= 9.5, high speed): 50% 2 lanes blocked, 50% 1 lane blocked.
+        // GOLDEN FAIRNESS RULE: ALWAYS guarantee at least 1 wide-open bypass lane (never block all 3 lanes).
+        let blockedCount = 1;
+        if (speed >= 9.5) {
+            blockedCount = Math.random() < 0.50 ? 2 : 1;
+        } else if (speed >= 5.5) {
+            blockedCount = Math.random() < 0.28 ? 2 : 1;
+        } else {
+            blockedCount = 1;
+        }
+
         const safeLane = Math.floor(Math.random() * 3);
+
+        let types;
+        if (speed < 5.5) {
+            types = ['low', 'high', 'low', 'high', 'barricade'];
+        } else if (speed < 9.5) {
+            types = ['low', 'high', 'barricade', 'barricade'];
+        } else {
+            types = ['barricade', 'barricade', 'low', 'high'];
+        }
+
+        const horizonY = window.GameRenderer.H * 0.38;
 
         for (let lane = 0; lane < 3; lane++) {
             if (blockedCount === 2 && lane === safeLane) continue;
@@ -444,28 +466,38 @@
             obstacles.push({
                 lane: lane,
                 x: window.GameRenderer.laneX(lane, 0.0),
-                y: window.GameRenderer.H * 0.38 - 30,
+                y: horizonY,
                 width: 58,
                 height: type === 'high' ? 70 : 62,
                 type: type,
                 progress: 0.0
             });
         }
+
+        // Spawn diamond streak along the safe open lane to guide the player!
+        if (Math.random() > 0.30) {
+            spawnDiamondStreak(safeLane);
+        }
     }
 
-    function spawnDiamondStreak() {
+    function spawnDiamondStreak(targetLane) {
         if (!window.GameRenderer) return;
-        const lane = Math.floor(Math.random() * 3);
+        const lane = (targetLane !== undefined && targetLane >= 0 && targetLane <= 2)
+            ? targetLane
+            : Math.floor(Math.random() * 3);
         const count = 3 + Math.floor(Math.random() * 3);
+        const horizonY = window.GameRenderer.H * 0.38;
+        const trackLength = window.GameRenderer.H - horizonY;
+        const spacing = Math.max(38, trackLength * 0.11);
 
         for (let i = 0; i < count; i++) {
             diamondObjects.push({
                 lane: lane,
                 x: window.GameRenderer.laneX(lane, 0.0),
-                y: (window.GameRenderer.H * 0.38) - 40 - (i * 55),
+                y: horizonY - 15 - (i * spacing),
                 radius: 13,
                 collected: false,
-                progress: -(i * 0.08),
+                progress: -(i * 0.10),
                 seed: Math.random() * 100
             });
         }
@@ -594,10 +626,17 @@
         if (!window.GameRenderer) return;
 
         const currentSpeed = player.hasOverdrive ? speed * 1.6 : speed;
-        const movement = currentSpeed * (dt / 16.67) * 2.75;
         const H = window.GameRenderer.H;
         const horizonY = H * 0.38;
         const trackLength = H - horizonY;
+        const effectiveDistance = Math.max(120, player.y - horizonY);
+
+        // Device-independent physical speed normalization:
+        // Ensures obstacle travel time from horizon to player is completely uniform across all devices:
+        // ~2.35s lead time at START_SPEED (3.0), accelerating to ~0.76s at MAX_SPEED (14.5).
+        const speedFactor = Math.max(1.0, currentSpeed / START_SPEED);
+        const velocityRatio = Math.pow(speedFactor, 0.72) / 2.35;
+        const movement = effectiveDistance * velocityRatio * (dt / 1000);
 
         // 1. Update 3D obstacles
         for (const ob of obstacles) {
@@ -649,13 +688,11 @@
         if (spawnTimer <= 0) {
             spawnObstaclePattern();
 
-            if (Math.random() > 0.35) {
-                spawnCoinStreak();
-            }
-
             const currentSpeed = player.hasOverdrive ? speed * 1.6 : speed;
-            // Spawning accelerates smoothly as speed progresses
-            spawnTimer = Math.max(420, 1750 - (currentSpeed - START_SPEED) * 120);
+            // Spawning pacing curve: starts with a generous 2400ms interval, accelerating to 860ms minimum at MAX_SPEED.
+            // 860ms spacing guarantees sufficient recovery time to land from a jump (530ms) or slide (340ms)
+            // and shift lanes without unfair or impossible deaths on any device.
+            spawnTimer = Math.max(860, 2400 - (currentSpeed - START_SPEED) * 135);
         }
 
         // Power-up capsule spawn

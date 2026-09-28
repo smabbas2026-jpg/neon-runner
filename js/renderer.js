@@ -398,8 +398,8 @@
             const ctx = this.ctx;
             const { roadWidth, roadLeft, roadTopWidth, roadTopLeft, horizonY } = this.getRoadMetrics();
 
-            // Advance scenery depths with punchier velocity
-            const moveDelta = speed * (dt / 16.67) * 0.055;
+            // Advance scenery depths with speed-scaled perspective velocity
+            const moveDelta = (speed / 3.0) * (dt / 16.67) * 0.038;
             const signs = ['STREET', 'RUNNER', 'CYBER', 'NEON', 'SYNTH', 'TOKYO', 'HOTEL', '2099', 'NEXUS', 'RAM', 'MATRIX', 'VOX'];
             const neonColors = ['#00f3ff', '#ff007f', '#ffe600', '#00ff66', '#b700ff'];
             const windowTints = ['#00f3ff', '#ffe600', '#ff00a0', '#e0ffff', '#00ffaa'];
@@ -1094,7 +1094,7 @@
             }
 
             // Moving horizontal grid bars (gives high-speed velocity illusion)
-            this.roadOffset = (this.roadOffset + speed * (dt / 16.67) * 0.055) % 1.0;
+            this.roadOffset = (this.roadOffset + (speed / 3.0) * (dt / 16.67) * 0.038) % 1.0;
             const barCount = 14;
 
             ctx.strokeStyle = 'rgba(255, 0, 160, 0.35)';
@@ -1288,6 +1288,11 @@
                 ctx.save();
                 ctx.translate(ob.x, ob.y);
 
+                // Natural 3D perspective depth scale: 0.35 at horizon -> 1.0 near player
+                const p = Math.max(0, Math.min(1.0, ob.progress !== undefined ? ob.progress : 0.8));
+                const scale = 0.35 + 0.65 * Math.pow(p, 1.25);
+                ctx.scale(scale, scale);
+
                 if (ob.type === 'low') {
                     // Low Laser Barrier (Must Jump Over)
                     ctx.shadowColor = '#ff0044';
@@ -1376,6 +1381,11 @@
 
                 ctx.save();
                 ctx.translate(d.x, d.y);
+
+                // Perspective depth scale
+                const p = Math.max(0, Math.min(1.0, d.progress !== undefined ? d.progress : 0.8));
+                const scale = 0.40 + 0.60 * Math.pow(p, 1.25);
+                ctx.scale(scale, scale);
 
                 // Rotating 3D gemstone projection
                 const spin = time * 0.005 + (d.seed || 0);
@@ -1516,6 +1526,11 @@
 
                 ctx.save();
                 ctx.translate(item.x, item.y + bob);
+
+                // Perspective depth scale
+                const p = Math.max(0, Math.min(1.0, item.progress !== undefined ? item.progress : 0.8));
+                const scale = 0.40 + 0.60 * Math.pow(p, 1.25);
+                ctx.scale(scale, scale);
 
                 // Outer glowing aura
                 ctx.shadowColor = cfg.color;
